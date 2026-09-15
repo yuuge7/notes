@@ -1,0 +1,4 @@
+tags:
+  # Timing checks. CI runs them on their own, since other tests running
+  # alongside them on a busy CPU skew the numbers.
+  perf:

@@ -1,0 +1,133 @@
+name: Release
+
+# Every push to main is tested, built, signed, and published as a new GitHub
+# release named "Notes vX.Y". X is the major version in pubspec.yaml; Y counts
+# up from the release tags already on GitHub, so a release is never replaced.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One release at a time, so two quick pushes cannot take the same number.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: Notes
+  FLUTTER_VERSION: 3.47.0
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Generate code
+        run: dart run build_runner build
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test --exclude-tags perf
+
+      - name: Test timings
+        run: flutter test --tags perf
+
+      - name: Pick the version
+        id: version
+        run: |
+          major=$(sed -nE 's/^version:[[:space:]]*([0-9]+)\..*/\1/p' pubspec.yaml)
+          if [ -z "$major" ]; then
+            echo "::error::pubspec.yaml has no version to take the major number from."
+            exit 1
+          fi
+          # The highest minor number already released under this major version.
+          last=$(git ls-remote --tags --refs origin \
+            | sed -nE "s#.*refs/tags/v${major}\.([0-9]+)\$#\1#p" \
+            | sort -n | tail -n 1)
+          minor=$(( ${last:--1} + 1 ))
+          if [ "$minor" -ge 10000 ]; then
+            echo "::error::v${major}.${minor} is out of range. Raise the major version in pubspec.yaml."
+            exit 1
+          fi
+          {
+            echo "name=${major}.${minor}"
+            echo "tag=v${major}.${minor}"
+            echo "code=$(( major * 10000 + minor ))"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing v${major}.${minor}"
+
+      - name: Restore the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for secret in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!secret}" ]; then
+              echo "::error::The ANDROID_${secret} secret is not set. See \"Release signing\" in README.md."
+              exit 1
+            fi
+          done
+          echo "$KEYSTORE_BASE64" | base64 --decode --ignore-garbage > notes-release.jks
+          {
+            echo "storeFile=notes-release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > key.properties
+
+      - name: Build the APK
+        env:
+          BUILD_NAME: ${{ steps.version.outputs.name }}
+          BUILD_NUMBER: ${{ steps.version.outputs.code }}
+        run: flutter build apk --release --build-name "$BUILD_NAME" --build-number "$BUILD_NUMBER"
+
+      - name: Check the APK carries the release key
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          certs=$("$apksigner" verify --print-certs build/app/outputs/flutter-apk/app-release.apk)
+          echo "$certs"
+          if echo "$certs" | grep -q "CN=Android Debug"; then
+            echo "::error::The APK was signed with the debug key."
+            exit 1
+          fi
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          apk="${APP_NAME}-${TAG}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "$apk"
+          gh release create "$TAG" "$apk" \
+            --title "${APP_NAME} ${TAG}" \
+            --target "$GITHUB_SHA" \
+            --generate-notes

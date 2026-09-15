@@ -1,0 +1,10 @@
+targets:
+  $default:
+    builders:
+      # json_serializable and riverpod_generator write through source_gen's
+      # combining builder, which does not silence lints by default. Generated
+      # code is analysed for errors but not held to the project's lint rules.
+      source_gen:combining_builder:
+        options:
+          ignore_for_file:
+            - type=lint

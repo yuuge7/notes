@@ -1,0 +1,30 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  # Generated files are analysed on purpose: they suppress their own lints, and
+  # excluding them hides real compile errors such as a missing import.
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+  errors:
+    invalid_annotation_target: ignore
+
+linter:
+  rules:
+    public_member_api_docs: false
+    lines_longer_than_80_chars: false
+    always_use_package_imports: true
+    # Dart 3.13 allows dropping the class name in a constructor declaration.
+    # We keep it: a named type reads better than a bare `.new`.
+    unnecessary_type_name_in_constructor: false
+    # Named static factories (AppColors.light, PigmentSwatch.lerp) are clearer
+    # than constructors here.
+    prefer_constructors_over_static_methods: false
+    use_string_buffers: false
+    async_return_with_no_await: false
+    prefer_relative_imports: false
