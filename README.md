@@ -18,8 +18,13 @@ own. Everything stays on the device: no account, no sign-in, and no network need
   notification itself. Reminders survive reboots and app updates.
 - **Images** from the Android photo picker or the camera, compressed on the device, shown as a mosaic on the
   card and full screen with pinch-to-zoom.
-- **Archive and trash**, with undo, plus Make a copy and Share.
-- **Light and dark themes**, TalkBack labels, and layouts that hold up at 200% text size.
+- **Archive and trash**, with undo, plus Make a copy and Share. The trash keeps notes for 1, 7, or 30 days.
+- **Export and import.** Every note, label, and image goes into one zip, saved wherever you choose or shared
+  with another app. Import merges it with the notes on the phone, keeping each note's latest edit, or replaces
+  them all.
+- **Settings** for the theme (light, dark, or the system's), where checked list items go, and how long the
+  trash keeps notes.
+- **TalkBack labels** and layouts that hold up at 200% text size.
 
 ## Download
 
@@ -38,6 +43,7 @@ install apps.
 | Navigation | go_router |
 | Reminders | flutter_local_notifications, timezone |
 | Images | image_picker (Android photo picker and camera), flutter_image_compress |
+| Backup | archive, Android's document pickers, share_plus |
 | Linting | very_good_analysis |
 
 ## Getting started
@@ -133,6 +139,11 @@ Tests run against a real in-memory database wherever data is involved. They cove
   the trash, and permission changes, and the Done and Snooze actions.
 - **Images:** storage and thumbnails, undo, no files left behind after deleting forever, copies, the viewer,
   and the card mosaic.
+- **Export and import:** an export replaced into an empty phone comes back identical, entry for entry;
+  merge rules for later edits, label names, and deleted labels; files that are not exports, are damaged, or
+  come from a newer version; and 5,000 notes exported and replaced in about a second on a desktop.
+- **Settings:** the theme the app wears, where checked list items go, the trash's stay, and schema upgrades
+  that keep notes and leave settings at their defaults.
 - **Layout and accessibility:** a 360dp-wide phone at 200% text size in both themes, and what TalkBack reads
   for each card.
 

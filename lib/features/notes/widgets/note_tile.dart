@@ -8,6 +8,7 @@ import 'package:notes/core/theme/app_colors.dart';
 import 'package:notes/core/theme/tokens.dart';
 import 'package:notes/data/providers.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/settings.dart';
 import 'package:notes/features/editor/editor_outcome.dart';
 import 'package:notes/features/editor/editor_screen.dart';
 import 'package:notes/features/notes/widgets/note_card.dart';
@@ -131,6 +132,11 @@ class NoteTile extends ConsumerWidget {
     required bool dropTarget,
   }) {
     final surface = Theme.of(context).colors.surfaceFor(note.pigment);
+    final checkedInPlace = ref.watch(
+      appSettingsProvider.select(
+        (settings) => settings.value?.checkedItems == CheckedItems.inPlace,
+      ),
+    );
     final reduced = MediaQuery.disableAnimationsOf(context);
     final move = reorder;
 
@@ -156,6 +162,7 @@ class NoteTile extends ConsumerWidget {
         selected: selected,
         dropTarget: dropTarget,
         highlight: highlight,
+        checkedInPlace: checkedInPlace,
         onTap: selecting && onToggleSelected != null
             ? onToggleSelected!
             : () {

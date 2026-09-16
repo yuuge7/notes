@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:notes/data/db/backup_dao.dart';
 import 'package:notes/data/db/note_dao.dart';
+import 'package:notes/data/db/preference_dao.dart';
 import 'package:notes/data/db/search_dao.dart';
 import 'package:notes/data/db/search_index.dart';
 import 'package:notes/data/db/tables.dart';
@@ -20,8 +22,9 @@ part 'database.g.dart';
     NoteLabels,
     Attachments,
     RecentSearches,
+    Preferences,
   ],
-  daos: [NoteDao, SearchDao],
+  daos: [NoteDao, SearchDao, PreferenceDao, BackupDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
@@ -40,8 +43,9 @@ class AppDatabase extends _$AppDatabase {
   /// 1: notes, items, labels, attachments.
   /// 2: full-text search, recent searches, and label names unique among live
   ///    labels ignoring case.
+  /// 3: preferences.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -59,6 +63,12 @@ class AppDatabase extends _$AppDatabase {
         await m.createIndex(idxLabelsName);
         await m.createTable(recentSearches);
         await SearchIndex.install(customStatement);
+      }
+      if (from < 3) {
+        await m.createTable(preferences);
+        // Every earlier install wrote the starter notes on its first run.
+        // Without this, one whose notes were all deleted would get them again.
+        await preferenceDao.write(PreferenceDao.seeded, 'true');
       }
     },
     beforeOpen: (details) async {

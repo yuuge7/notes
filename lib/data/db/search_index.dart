@@ -14,10 +14,29 @@ abstract final class SearchIndex {
   /// the database.
   static Future<void> install(Future<void> Function(String sql) run) async {
     await run(_createTable);
-    for (final trigger in _triggers) {
+    for (final trigger in _triggers.values) {
       await run(trigger);
     }
     await rebuild(run);
+  }
+
+  /// Runs [writes] with the triggers off, then indexes every note afresh.
+  ///
+  /// For writes to many notes at once, such as an import: each trigger
+  /// rebuilds its note's row, so thousands of rows written one by one cost
+  /// thousands of rebuilds, where one rebuild at the end costs a single pass.
+  /// Run it inside a transaction, so nothing else writes while the triggers
+  /// are off and a failure puts them back.
+  static Future<T> bulk<T>(
+    Future<void> Function(String sql) run,
+    Future<T> Function() writes,
+  ) async {
+    for (final name in _triggers.keys) {
+      await run('DROP TRIGGER IF EXISTS $name');
+    }
+    final result = await writes();
+    await install(run);
+    return result;
   }
 
   /// Re-indexes every note from scratch.
@@ -61,12 +80,18 @@ SELECT
 FROM notes n
 WHERE $where''';
 
-  static String _trigger(String name, String event, String body) =>
-      'CREATE TRIGGER IF NOT EXISTS $name $event BEGIN $body END';
+  static MapEntry<String, String> _trigger(
+    String name,
+    String event,
+    String body,
+  ) => MapEntry(
+    name,
+    'CREATE TRIGGER IF NOT EXISTS $name $event BEGIN $body END',
+  );
 
   // Updates only re-index when a column that is searched changes: moving,
   // pinning, or recolouring a note leaves the index alone.
-  static final List<String> _triggers = [
+  static final Map<String, String> _triggers = Map.fromEntries([
     _trigger(
       'notes_fts_note_insert',
       'AFTER INSERT ON notes',
@@ -120,5 +145,5 @@ WHERE $where''';
         'n.id IN (SELECT note_id FROM note_labels WHERE label_id = NEW.id)',
       ),
     ),
-  ];
+  ]);
 }

@@ -18,4 +18,6 @@ class SearchRepository {
   Future<void> remember(String query) => _dao.remember(query);
 
   Future<void> clearRecent() => _dao.clearRecent();
+
+  Future<void> rebuildIndex() => _dao.rebuildIndex();
 }

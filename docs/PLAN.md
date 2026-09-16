@@ -27,7 +27,7 @@ Local-first storage, import/export from day one, sync-ready schema for later.
 | Masonry | `flutter_staggered_grid_view` | `MasonryGridView` for the grid; drag-reorder is custom (see Risks) |
 | Notifications | `flutter_local_notifications` + `timezone` | Exact alarms, actions, boot reschedule |
 | Images | `image_picker` (Android Photo Picker), `flutter_image_compress`, `path_provider` | No storage permission needed on 13+ |
-| Files | `file_picker` / `share_plus`, `archive` | Export bundle out via SAF, import back in |
+| Files | Android's document pickers through a channel in `MainActivity`, `share_plus`, `archive` | Export bundle out via SAF, import back in; files are streamed, never passed as bytes |
 | IDs | `uuid` v7 | Time-sortable, collision-free, sync-friendly |
 | Lint | `very_good_analysis` | Stricter than default, catches slop early |
 
@@ -115,6 +115,8 @@ attachments(
 trash(note_id TEXT PK, deleted_at INT)   -- purge removes notes older than 7 days
 
 recent_searches(folded TEXT PK, query TEXT, used_at INT)   -- this device only; the last three are kept
+
+preferences(key TEXT PK, value TEXT)   -- settings and first-run flags; this device only, never exported
 
 notes_fts USING fts5(title, body, items, labels, tokenize='unicode61 remove_diacritics 2', prefix='1 2 3')
   -- one row per note under the note's rowid, rebuilt by triggers on notes, checklist_items, note_labels,
@@ -265,6 +267,7 @@ manifest.json     { schemaVersion, appVersion, exportedAt, counts }
 notes.json        [ full note objects incl. items, labels, reminder, attachment refs ]
 labels.json
 media/<attachmentId>.<ext>
+media/thumbs/<attachmentId>.jpg   (added in milestone 6: an import need not remake thumbnails)
 ```
 
 - Export writes to a temp file, then hands it to the system share/save sheet (SAF).
@@ -674,3 +677,93 @@ Carried forward:
 - **Other formats.** HEIC and other formats Flutter cannot size go through a fallback that decodes them to a
   full-size JPEG first. The emulator's photos are all JPEGs, so that path is covered by the code only.
 - **Sharing** still sends text only; images are not shared.
+
+### Milestone 6 — done (2026-09-16)
+
+Import, export, and settings, covered by 332 tests in total and checked on the Android 17 emulator.
+
+- **Settings.** Last in the drawer, under Trash, and pushed over the page that opened it. Every choice applies
+  the moment it is made.
+  - **Theme:** system default, light, or dark, chosen from three small pages drawn in each theme's own colours.
+    The launch screen stays up until the choice is read, capped at a second, so a dark choice never shows a
+    light first frame.
+  - **Checked list items:** fold away at the bottom (the default, as before), show at the bottom, or leave in
+    place. In place, the editor and the card keep list order and a new item goes last. Backspace in an empty
+    item directly under a checked one removes it, rather than joining into a finished item.
+  - **Trash:** 1, 7, or 30 days, read by the purge at start-up. The trash's header line and its empty state
+    name the chosen stay.
+  - **Rebuild search index**, the remedy §11 planned for an index out of step with the notes.
+- **Export.** One zip, `notes-export-YYYYMMDD-HHmm.zip`: the manifest, every note including the archive and
+  the trash, the labels, and each image with its thumbnail. The JSON is deflated; photos are stored as they
+  are. The sheet writes the file as it opens, shows the counts and the size, then offers Save to a file
+  (Android's save picker) and Share.
+- **Import.** Android's open picker, then a sheet that reads the file and shows what each way would do before
+  anything is written.
+  - **Merge:** a note on both keeps its later edit, and its place here. New notes go above the notes here in
+    the file's order. Labels match by name ignoring case, new ones go after the labels here, and a label
+    deleted here after the export stays deleted.
+  - **Replace:** behind typing "replace". Every note and label here is deleted, and the file comes back
+    exactly, sort keys included.
+  - Images are unpacked first; then every write runs in one transaction, worked out again from the notes as
+    they are at that moment. A failed import writes nothing and removes the files it unpacked. Images of notes
+    that stayed as they were are swept like any unused file.
+  - Refused, each with its own message: a file that is not an export, one from a newer bundle format, and a
+    damaged one. Images a file lists but does not hold are left out and counted.
+- **Starter notes** are written once, on an install's first run. Before, a phone whose notes were all deleted
+  for good, or replaced by an empty export, got them back at the next start.
+- On the emulator, installed over the milestone 3 era database, which upgraded with its 11 notes and 4 labels:
+  - dark applied at once, status bar icons included; after a force-stop, 30 screenshots through the cold start
+    went from the launch screen straight to a dark first frame;
+  - with Leave in place, the Groceries card and editor kept list order and ticking Oat milk left it first;
+    Show at the bottom listed the checked items under an open count;
+  - a note of three photos from the photo picker was added, one note archived and one trashed, and the export,
+    12 notes, 4 labels, 3 images, 407 KB, was saved to Downloads through the save picker;
+  - Share offered the zip under its export name.
+- **Checkpoint.** After that export, `pm clear` wiped the app, which started again with the 8 starter notes.
+  Merge would have added 12 notes, 1 label (Home, Admin, and Reading matched by name), and 3 images; Replace
+  showed −8 notes here and +12 notes, +4 labels, +3 images, and its button stayed off until "replace" was
+  typed. After the import, a second export matched the first entry for entry: `notes.json`, `labels.json`,
+  and all six image and thumbnail files byte-identical, and the manifest differing only in `exportedAt`.
+  Importing the file again offered nothing new, and a 13 MB file that is not a zip was refused as not an
+  export.
+
+Decisions and findings:
+- **Where settings live.** A `preferences` table, schema version 3, kept on the device like recent searches
+  and left out of exports. No new plugin, and the theme reaches the app as a stream. Upgrading from version 2
+  marks the starter notes as written, since every earlier install wrote them on its first run. The upgrade
+  tests start from a snapshot of version 2's schema.
+- **Pickers.** A small channel in `MainActivity` opens Android's save and open pickers, instead of
+  `file_picker` as §2 first planned. `file_picker` 12 hands a save over as one byte array through the channel;
+  the channel copies the file as a stream on a background thread, both ways.
+- **The bundle's version** is its own, 1, apart from the database schema, which can change without changing
+  what an export holds.
+- **Thumbnails travel in the bundle**, under `media/thumbs/`, so an import does not compress anything again.
+  A thumbnail missing from a file is replaced by a copy of its image.
+- **Ids from a file become file names**, so they must look like ids the app makes; a sort key must be letters
+  that do not end in `a`. A file that breaks either is damaged. Colours, types, and repeats this version does
+  not know fall back to their defaults.
+- **Speed.** 5,000 notes, a fifth of them lists of 8 items and half with a label, on this desktop: export
+  0.6–1.0s, reading 0.2–0.4s, and replace 0.5–0.9s, depending on how busy the machine was. The first version
+  wrote note by note with the search triggers indexing each row, and replace took 4.2s. Writes now go in one
+  batch, and a replace, or a merge of more than 200 notes, drops the triggers inside its transaction and
+  indexes everything once.
+- **Found in review.**
+  - Two exports could overlap, when a sheet closed mid-export was opened again, and the second cleared or
+    wrote over the file the first was writing. Exports now run one after the other.
+  - A picker that failed to open left the channel busy until the app restarted.
+  - A label the file renamed to a name another label has here joins that label, as a new label with that name
+    would. Kept, and covered by a test.
+- **Found on the emulator.** The empty trash said "seven days" whatever was chosen. The export ledger printed
+  each count twice, and its "398 KB" wrapped at 200% text; the size moved to the heading line. The export time
+  carried microseconds; times are written to the millisecond.
+
+Carried forward:
+- **Cold start with the theme hold** has not been measured on a release build. The emulator holds a debug
+  install, and a release build cannot be installed over it without uninstalling.
+- **The launch screen** is still Flutter's white one, so with dark chosen a white screen shows before the dark
+  first frame. The splash is milestone 7's.
+- **Auto-backup.** The installed app reports `ALLOW_BACKUP`: the manifest does not yet set
+  `android:allowBackup="false"` as §8 plans.
+- **Import progress** shows a running line, not how far along it is. Large imports have been timed on the
+  desktop only.
+- **Process death with a picker open** loses that call; the export or import has to be started again.

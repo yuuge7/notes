@@ -56,4 +56,36 @@ void main() {
       expect(keys, sorted);
     });
   });
+  group('SortKey.spread', () {
+    test('gives ascending keys inside the bounds', () {
+      for (final (after, before) in [
+        ('', ''),
+        ('', 'g'),
+        ('m', ''),
+        ('c', 'd'),
+      ]) {
+        final keys = SortKey.spread(40, after: after, before: before);
+        expect(keys, hasLength(40));
+        for (var i = 0; i < keys.length; i++) {
+          if (i > 0) expect(keys[i - 1].compareTo(keys[i]), lessThan(0));
+          if (after.isNotEmpty) {
+            expect(keys[i].compareTo(after), greaterThan(0));
+          }
+          if (before.isNotEmpty) {
+            expect(keys[i].compareTo(before), lessThan(0));
+          }
+          expect(keys[i].endsWith('a'), isFalse);
+        }
+      }
+    });
+
+    test('stays short for many keys', () {
+      final keys = SortKey.spread(5000, before: 'g');
+      expect(keys.map((key) => key.length).reduce(max), lessThanOrEqualTo(5));
+    });
+
+    test('gives nothing for no keys', () {
+      expect(SortKey.spread(0), isEmpty);
+    });
+  });
 }

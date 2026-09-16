@@ -108,6 +108,17 @@ class RecentSearches extends Table {
   Set<Column<Object>> get primaryKey => {folded};
 }
 
+/// Settings chosen on this device, one row per setting, each value stored as
+/// text. Kept on this device only: no sync columns, and not part of an export.
+@DataClassName('PreferenceRow')
+class Preferences extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {key};
+}
+
 @DataClassName('AttachmentRow')
 @TableIndex(name: 'idx_attachments_note', columns: {#noteId, #sortKey})
 class Attachments extends Table with SyncColumns {

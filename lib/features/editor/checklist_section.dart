@@ -12,6 +12,7 @@ import 'package:notes/data/providers.dart';
 import 'package:notes/data/repository/checklist_repository.dart';
 import 'package:notes/domain/model/checklist_item.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/settings.dart';
 
 /// The live editing state of one checklist: a text controller and focus node
 /// per item, and the saves still waiting out their debounce.
@@ -151,8 +152,10 @@ class ChecklistSection extends ConsumerStatefulWidget {
 }
 
 class _ChecklistSectionState extends ConsumerState<ChecklistSection> {
-  /// Checked items start folded away: what is left to do is the point.
-  bool _showChecked = false;
+  /// Whether the checked items at the bottom are open. Until the count is
+  /// tapped, the settings decide: folded away by default, since what is left
+  /// to do is the point.
+  bool? _showChecked;
 
   ChecklistRepository get _repository => ref.read(checklistRepositoryProvider);
 
@@ -186,14 +189,19 @@ class _ChecklistSectionState extends ConsumerState<ChecklistSection> {
     return id;
   }
 
-  Future<void> _add() async {
+  /// Adds an item at the end of the list as shown: after the last open item,
+  /// or after the last item of all when checked items stay in place.
+  Future<void> _add({required bool inPlace}) async {
     final noteId = await widget.ensureNote();
     _edits.noteId = noteId;
     await _edits.flush();
-    final open = ChecklistRules.open(widget.note?.items ?? const []);
+    final items = widget.note?.items ?? const <ChecklistItem>[];
+    final shown = inPlace
+        ? ChecklistRules.ordered(items)
+        : ChecklistRules.open(items);
     final added = await _repository.add(
       noteId,
-      afterItemId: open.isEmpty ? null : open.last.id,
+      afterItemId: shown.isEmpty ? null : shown.last.id,
       indent: 0,
     );
     _focus(added.id, 0);
@@ -248,9 +256,19 @@ class _ChecklistSectionState extends ConsumerState<ChecklistSection> {
     _focus(added.id, 0);
   }
 
-  Future<void> _mergeUp(ChecklistItem item) async {
+  /// Backspace at the start of [item], in the list as [shown]. Text joins
+  /// the open item above; a checked item directly above takes none, so an
+  /// empty line is simply removed there.
+  Future<void> _mergeUp(ChecklistItem item, List<ChecklistItem> shown) async {
     final noteId = await _noteId();
     if (noteId == null) return;
+    final index = shown.indexWhere((i) => i.id == item.id);
+    if (index > 0 && shown[index - 1].checked) {
+      if (_edits.controllerFor(item).text.isEmpty) {
+        await _remove(item, shown);
+      }
+      return;
+    }
     await _edits.flush();
     final result = await _repository.mergeIntoPrevious(noteId, item.id);
     if (result != null) _focus(result.itemId, result.cursor);
@@ -282,17 +300,19 @@ class _ChecklistSectionState extends ConsumerState<ChecklistSection> {
     }
   }
 
-  void _reorder(List<ChecklistItem> open, int from, int to) {
+  /// Moves the item at [from] in [shown], the list as it is on screen, to
+  /// [to].
+  void _reorder(List<ChecklistItem> shown, int from, int to) {
     final noteId = _edits.noteId ?? widget.note?.id;
     if (noteId == null) return;
     // The list already reports the target with the moved item taken out.
     final target = to;
     if (target == from) return;
-    final rest = [...open]..removeAt(from);
+    final rest = [...shown]..removeAt(from);
     unawaited(
       _repository.move(
         noteId,
-        open[from].id,
+        shown[from].id,
         afterItemId: target > 0 ? rest[target - 1].id : null,
         beforeItemId: target < rest.length ? rest[target].id : null,
       ),
@@ -307,8 +327,17 @@ class _ChecklistSectionState extends ConsumerState<ChecklistSection> {
     _edits.sync(items);
     _applyPendingFocus(items);
 
+    final checkedItems =
+        ref.watch(appSettingsProvider).value?.checkedItems ??
+        const AppSettings().checkedItems;
+    final inPlace = !checkedItems.atBottom;
     final open = ChecklistRules.open(items);
-    final done = ChecklistRules.done(items);
+    // Every item in its place, or the open ones with the checked folded
+    // below.
+    final shown = inPlace ? ChecklistRules.ordered(items) : open;
+    final done = inPlace ? const <ChecklistItem>[] : ChecklistRules.done(items);
+    final firstOpen = open.firstOrNull?.id;
+    final showChecked = _showChecked ?? checkedItems == CheckedItems.shown;
 
     return SliverMainAxisGroup(
       slivers: [
@@ -318,12 +347,12 @@ class _ChecklistSectionState extends ConsumerState<ChecklistSection> {
           const SliverToBoxAdapter(child: SizedBox.shrink())
         else
           SliverReorderableList(
-            itemCount: open.length,
-            onReorderItem: (from, to) => _reorder(open, from, to),
+            itemCount: shown.length,
+            onReorderItem: (from, to) => _reorder(shown, from, to),
             proxyDecorator: (child, index, animation) =>
                 Material(type: MaterialType.transparency, child: child),
             itemBuilder: (context, index) {
-              final item = open[index];
+              final item = shown[index];
               return ChecklistRow(
                 key: ValueKey(item.id),
                 index: index,
@@ -331,34 +360,45 @@ class _ChecklistSectionState extends ConsumerState<ChecklistSection> {
                 controller: _edits.controllerFor(item),
                 focusNode: _edits.focusFor(item.id),
                 readOnly: widget.readOnly,
-                canIndent: index > 0,
+                indented: item.indent > 0,
+                // The first open item has nothing to sit under, wherever the
+                // checked items are.
+                canIndent: item.id != firstOpen,
                 onMoveUp: index > 0 && !widget.readOnly
-                    ? () => _reorder(open, index, index - 1)
+                    ? () => _reorder(shown, index, index - 1)
                     : null,
-                onMoveDown: index < open.length - 1 && !widget.readOnly
-                    ? () => _reorder(open, index, index + 1)
+                onMoveDown: index < shown.length - 1 && !widget.readOnly
+                    ? () => _reorder(shown, index, index + 1)
                     : null,
                 onChanged: (text) => _changed(item, text),
-                onSubmitted: () => unawaited(_split(item)),
-                onBackspaceAtStart: () => unawaited(_mergeUp(item)),
+                onSubmitted: item.checked
+                    ? () {}
+                    : () => unawaited(_split(item)),
+                onBackspaceAtStart: item.checked
+                    ? () {}
+                    : () => unawaited(_mergeUp(item, shown)),
                 onChecked: (checked) =>
                     unawaited(_setChecked(item, checked: checked)),
-                onIndent: (indent) => unawaited(_setIndent(item, indent)),
-                onRemove: () => unawaited(_remove(item, open)),
+                onIndent: item.checked
+                    ? null
+                    : (indent) => unawaited(_setIndent(item, indent)),
+                onRemove: () => unawaited(_remove(item, shown)),
               );
             },
           ),
         if (note != null && !widget.readOnly)
-          SliverToBoxAdapter(child: _AddItemRow(onAdd: () => unawaited(_add()))),
+          SliverToBoxAdapter(
+            child: _AddItemRow(onAdd: () => unawaited(_add(inPlace: inPlace))),
+          ),
         if (done.isNotEmpty) ...[
           SliverToBoxAdapter(
             child: _CheckedHeader(
               count: done.length,
-              expanded: _showChecked,
-              onToggle: () => setState(() => _showChecked = !_showChecked),
+              expanded: showChecked,
+              onToggle: () => setState(() => _showChecked = !showChecked),
             ),
           ),
-          if (_showChecked)
+          if (showChecked)
             SliverList.builder(
               itemCount: done.length,
               itemBuilder: (context, index) {
@@ -371,6 +411,7 @@ class _ChecklistSectionState extends ConsumerState<ChecklistSection> {
                   focusNode: _edits.focusFor(item.id),
                   readOnly: widget.readOnly,
                   draggable: false,
+                  indented: false,
                   canIndent: false,
                   onChanged: (text) => _changed(item, text),
                   onSubmitted: () {},
@@ -401,6 +442,7 @@ class ChecklistRow extends StatefulWidget {
     required this.onBackspaceAtStart,
     required this.onChecked,
     required this.onRemove,
+    required this.indented,
     this.onIndent,
     this.onMoveUp,
     this.onMoveDown,
@@ -419,6 +461,10 @@ class ChecklistRow extends StatefulWidget {
   final VoidCallback onBackspaceAtStart;
   final ValueChanged<bool> onChecked;
   final VoidCallback onRemove;
+
+  /// Whether the row sits one step in, under the item above. Checked items
+  /// folded away at the bottom lose their nesting there.
+  final bool indented;
 
   /// Null where indenting does not apply, such as checked items.
   final ValueChanged<int>? onIndent;
@@ -498,7 +544,7 @@ class _ChecklistRowState extends State<ChecklistRow> {
     final colors = Theme.of(context).colors;
     final item = widget.item;
     final checked = item.checked;
-    final indent = checked ? 0 : item.indent;
+    final indent = widget.indented ? 1 : 0;
     final textStyle = AppText.noteBodyEditor.copyWith(
       color: checked ? colors.inkMuted : colors.ink,
       decoration: checked ? TextDecoration.lineThrough : null,

@@ -7,9 +7,6 @@ import 'package:notes/domain/model/note.dart';
 import 'package:notes/domain/model/note_type.dart';
 import 'package:notes/domain/model/pigment.dart';
 
-/// How long a note stays in the trash before it is purged for good.
-const trashRetention = Duration(days: 7);
-
 /// The only way the app reads or changes notes.
 ///
 /// Widgets never see a database row: every mutation goes through here so undo,
@@ -69,16 +66,18 @@ class NoteRepository {
   Future<void> setPigment(String id, Pigment pigment) =>
       _dao.updateNote(id, NotesCompanion(pigment: Value(pigment)));
 
-  /// Moves a note to the trash. Reversible for [trashRetention].
+  /// Moves a note to the trash, where it stays for the retention chosen in
+  /// settings.
   Future<void> delete(String id) => _dao.softDelete(id);
 
   Future<void> restore(String id) => _dao.restore(id);
 
   Future<void> emptyTrash() => _dao.emptyTrash();
 
-  /// Deletes trashed notes whose retention has run out. Called at start-up.
-  Future<int> purgeExpiredTrash() =>
-      _dao.purgeTrashedBefore(DateTime.now().subtract(trashRetention));
+  /// Deletes notes that have been in the trash longer than [retention].
+  /// Called at start-up.
+  Future<int> purgeExpiredTrash(Duration retention) =>
+      _dao.purgeTrashedBefore(DateTime.now().subtract(retention));
 
   /// Makes a copy of [id] at the top of the grid: text, pigment, checklist
   /// items, and labels.

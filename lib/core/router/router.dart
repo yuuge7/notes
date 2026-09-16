@@ -6,13 +6,15 @@ import 'package:notes/features/labels/labels_screen.dart';
 import 'package:notes/features/notes/notes_screen.dart';
 import 'package:notes/features/reminders/reminders_screen.dart';
 import 'package:notes/features/search/search_screen.dart';
+import 'package:notes/features/settings/settings_screen.dart';
 import 'package:notes/features/shelf/shelf_screen.dart';
 
 /// The app's router.
 final GoRouter appRouter = buildRouter();
 
-/// Shelves and labels are siblings reached from the drawer. Search and the
-/// labels page are pushed over whatever opened them, so back returns there.
+/// Shelves and labels are siblings reached from the drawer. Search, the
+/// labels page, and settings are pushed over whatever opened them, so back
+/// returns there.
 ///
 /// Opening a note is not a route here: a card grows into its editor with a
 /// container transform, which a router page cannot express. A tapped
@@ -60,6 +62,10 @@ GoRouter buildRouter({String initialLocation = '/'}) {
       GoRoute(
         path: '/labels',
         builder: (context, state) => const LabelsScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
       ),
     ],
   );

@@ -25,6 +25,7 @@ class NoteCard extends StatelessWidget {
     this.semanticActions,
     this.semanticLongPress,
     this.highlight = const [],
+    this.checkedInPlace = false,
     super.key,
   });
 
@@ -46,6 +47,10 @@ class NoteCard extends StatelessWidget {
   /// Search words to mark. A search result also leads with the part of the
   /// note that matched, so the reason it turned up is on the card.
   final List<String> highlight;
+
+  /// Whether checked items keep their place in the list, as chosen in
+  /// settings, rather than following the open ones.
+  final bool checkedInPlace;
 
   /// Checklist rows shown before the card starts summarising.
   static const _previewItems = 5;
@@ -99,7 +104,11 @@ class NoteCard extends StatelessWidget {
                           Gap.md,
                           Gap.sm,
                         ),
-                        child: _CardBody(note: note, highlight: highlight),
+                        child: _CardBody(
+                          note: note,
+                          highlight: highlight,
+                          checkedInPlace: checkedInPlace,
+                        ),
                       ),
                     ],
                   ),
@@ -163,10 +172,15 @@ class NoteCard extends StatelessWidget {
 }
 
 class _CardBody extends StatelessWidget {
-  const _CardBody({required this.note, required this.highlight});
+  const _CardBody({
+    required this.note,
+    required this.highlight,
+    required this.checkedInPlace,
+  });
 
   final Note note;
   final List<String> highlight;
+  final bool checkedInPlace;
 
   @override
   Widget build(BuildContext context) {
@@ -189,7 +203,11 @@ class _CardBody extends StatelessWidget {
         if (hasTitle && (hasBody || note.isChecklist))
           const SizedBox(height: Gap.sm),
         if (note.isChecklist)
-          _ChecklistPreview(note: note, highlight: highlight)
+          _ChecklistPreview(
+            note: note,
+            highlight: highlight,
+            checkedInPlace: checkedInPlace,
+          )
         else if (hasBody)
           _BodyPreview(body: note.body, highlight: highlight),
         if (!hasTitle &&
@@ -236,17 +254,25 @@ class _BodyPreview extends StatelessWidget {
 }
 
 class _ChecklistPreview extends StatelessWidget {
-  const _ChecklistPreview({required this.note, required this.highlight});
+  const _ChecklistPreview({
+    required this.note,
+    required this.highlight,
+    required this.checkedInPlace,
+  });
 
   final Note note;
   final List<String> highlight;
+  final bool checkedInPlace;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colors;
-    // Unchecked work comes first on a card: what is left is the point. In a
-    // search result the items that matched come before both.
-    var ordered = [...note.uncheckedItems, ...note.checkedItems];
+    // Unchecked work comes first on a card, what is left being the point,
+    // unless checked items are to stay in place. In a search result the items
+    // that matched come before both.
+    var ordered = checkedInPlace
+        ? note.items
+        : [...note.uncheckedItems, ...note.checkedItems];
     if (highlight.isNotEmpty) {
       bool hit(ChecklistItem item) =>
           SearchText.matches(item.text, highlight).isNotEmpty;

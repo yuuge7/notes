@@ -9,12 +9,14 @@ part 'notes_providers.g.dart';
 /// Two ways to read the grid: masonry cards, or one dense column.
 enum NotesLayout { grid, list }
 
-/// Work that has to finish before the first read: expired trash is purged and,
-/// on a fresh install, the starter notes are written.
+/// Work that has to finish before the first read: trash past the stay chosen
+/// in settings is purged and, on a fresh install, the starter notes are
+/// written.
 @Riverpod(keepAlive: true)
 Future<void> appStartup(Ref ref) async {
   final repository = ref.watch(noteRepositoryProvider);
-  await repository.purgeExpiredTrash();
+  final settings = await ref.watch(settingsRepositoryProvider).load();
+  await repository.purgeExpiredTrash(settings.trashRetention.duration);
   await seedIfEmpty(ref.watch(noteDaoProvider));
 }
 

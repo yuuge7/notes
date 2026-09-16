@@ -9,8 +9,7 @@ import 'package:notes/core/theme/typography.dart';
 import 'package:notes/domain/model/label.dart';
 import 'package:notes/features/labels/label_providers.dart';
 
-/// Moves between shelves, reminders, and labels. Settings joins the list in
-/// its own milestone.
+/// Moves between shelves, reminders, and labels, and opens settings.
 class AppDrawer extends ConsumerWidget {
   const AppDrawer({required this.currentPath, super.key});
 
@@ -27,12 +26,14 @@ class AppDrawer extends ConsumerWidget {
       if (path != currentPath) context.go(path);
     }
 
-    void editLabels() {
+    void push(String path) {
       // Read the router before the drawer closes and its context goes.
       final router = GoRouter.of(context);
       Navigator.of(context).pop();
-      unawaited(router.push('/labels'));
+      unawaited(router.push(path));
     }
+
+    void editLabels() => push('/labels');
 
     return Drawer(
       backgroundColor: colors.ground,
@@ -139,6 +140,12 @@ class AppDrawer extends ConsumerWidget {
               icon: Icons.delete_outline,
               selected: currentPath == '/trash',
               onTap: () => go('/trash'),
+            ),
+            _DrawerItem(
+              label: 'Settings',
+              icon: Icons.settings_outlined,
+              selected: false,
+              onTap: () => push('/settings'),
             ),
           ],
         ),

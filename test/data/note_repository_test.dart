@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' show DatabaseConnection;
+import 'package:drift/drift.dart' show DatabaseConnection, Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes/data/db/database.dart';
@@ -90,10 +90,39 @@ void main() {
       final note = await repository.create(title: 'Recent');
       await repository.delete(note.id);
 
-      final removed = await repository.purgeExpiredTrash();
+      final removed = await repository.purgeExpiredTrash(
+        const Duration(days: 7),
+      );
 
       expect(removed, 0);
       expect(await titles(Shelf.trash), ['Recent']);
+    });
+
+    test('purge follows the retention it is given', () async {
+      final older = await repository.create(title: 'Ten days');
+      final newer = await repository.create(title: 'Two days');
+      Future<void> trashDaysAgo(String id, int days) async {
+        await repository.delete(id);
+        await db.noteDao.updateNote(
+          id,
+          NotesCompanion(
+            deletedAtMs: Value(
+              DateTime.now()
+                  .subtract(Duration(days: days))
+                  .millisecondsSinceEpoch,
+            ),
+          ),
+        );
+      }
+
+      await trashDaysAgo(older.id, 10);
+      await trashDaysAgo(newer.id, 2);
+
+      expect(await repository.purgeExpiredTrash(const Duration(days: 30)), 0);
+      expect(await repository.purgeExpiredTrash(const Duration(days: 7)), 1);
+      expect(await titles(Shelf.trash), ['Two days']);
+      expect(await repository.purgeExpiredTrash(const Duration(days: 1)), 1);
+      expect(await titles(Shelf.trash), isEmpty);
     });
 
     test('purge removes notes trashed before the cutoff', () async {
@@ -335,6 +364,31 @@ void main() {
 
       expect(first, 8);
       expect(await repository.count(), 8);
+    });
+
+    test('does not come back once every note is deleted', () async {
+      await seedIfEmpty(db.noteDao);
+      for (final note in await db.noteDao.loadShelf(Shelf.active)) {
+        await repository.delete(note.id);
+      }
+      await repository.emptyTrash();
+
+      await seedIfEmpty(db.noteDao);
+
+      expect(await repository.count(), 0);
+    });
+
+    test('leaves an install that already holds notes alone', () async {
+      await repository.create(title: 'Mine');
+
+      await seedIfEmpty(db.noteDao);
+      await repository.delete(
+        (await db.noteDao.loadShelf(Shelf.active)).single.id,
+      );
+      await repository.emptyTrash();
+      await seedIfEmpty(db.noteDao);
+
+      expect(await repository.count(), 0);
     });
 
     test('attaches labels and keeps checklist items in order', () async {

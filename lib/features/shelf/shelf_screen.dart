@@ -11,8 +11,8 @@ import 'package:notes/core/ui/shelf_scaffold.dart';
 import 'package:notes/core/ui/undo.dart';
 import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/data/providers.dart';
-import 'package:notes/data/repository/note_repository.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/settings.dart';
 import 'package:notes/features/notes/notes_providers.dart';
 import 'package:notes/features/notes/notes_screen.dart';
 import 'package:notes/features/notes/selection.dart';
@@ -43,6 +43,9 @@ class ShelfScreen extends ConsumerWidget {
     final notes = notesAsync.value ?? const <Note>[];
     final colors = Theme.of(context).colors;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final retention =
+        ref.watch(appSettingsProvider).value?.trashRetention ??
+        const AppSettings().trashRetention;
 
     final Widget content;
     if (notesAsync.isLoading && !notesAsync.hasValue) {
@@ -53,7 +56,9 @@ class ShelfScreen extends ConsumerWidget {
         onRetry: () => ref.invalidate(shelfNotesProvider(shelf)),
       );
     } else if (notes.isEmpty) {
-      content = _isTrash ? const TrashEmpty() : const ArchiveEmpty();
+      content = _isTrash
+          ? TrashEmpty(retention: retention)
+          : const ArchiveEmpty();
     } else {
       content = MasonryGridView.count(
         padding: EdgeInsets.fromLTRB(
@@ -131,7 +136,7 @@ class ShelfScreen extends ConsumerWidget {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'NOTES HERE ARE DELETED AFTER '
-                    '${trashRetention.inDays} DAYS',
+                    '${retention.label.toUpperCase()}',
                     style: AppText.meta.copyWith(color: colors.inkMuted),
                   ),
                 ),

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:notes/core/util/search_text.dart';
 import 'package:notes/data/db/database.dart';
+import 'package:notes/data/db/search_index.dart';
 import 'package:notes/data/db/tables.dart';
 import 'package:notes/data/mapper/note_mapper.dart';
 import 'package:notes/domain/model/note_type.dart';
@@ -21,6 +22,10 @@ class SearchDao extends DatabaseAccessor<AppDatabase> with _$SearchDaoMixin {
 
   /// Searches offered again when the field is empty.
   static const recentCount = 3;
+
+  /// Indexes every note from scratch, for when search seems to miss one.
+  Future<void> rebuildIndex() =>
+      transaction(() => SearchIndex.rebuild(customStatement));
 
   /// Emits results now, and again whenever a note changes.
   Stream<SearchResults> watch(SearchQuery query) =>

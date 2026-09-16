@@ -63,6 +63,31 @@ abstract final class SortKey {
     return result + String.fromCharCode((p + n + 1) ~/ 2);
   }
 
+  /// [count] keys in ascending order, all between [after] and [before], with
+  /// an empty string for an open end.
+  ///
+  /// Each key halves the gap left to it, so the keys stay short however many
+  /// are placed: a thousand fit in three characters. Placing them one after
+  /// another would add a character every few keys.
+  static List<String> spread(
+    int count, {
+    String after = '',
+    String before = '',
+  }) {
+    final keys = List.filled(count, '');
+    void fill(int low, int high, String prev, String next) {
+      if (low > high) return;
+      final middle = (low + high) ~/ 2;
+      final key = between(prev, next);
+      keys[middle] = key;
+      fill(low, middle - 1, prev, key);
+      fill(middle + 1, high, key, next);
+    }
+
+    fill(0, count - 1, after, before);
+    return keys;
+  }
+
   /// A key that sorts before [key].
   static String before(String key) => between('', key);
 

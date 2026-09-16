@@ -4,12 +4,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:notes/data/db/database.dart';
 import 'package:notes/data/repository/label_repository.dart';
 import 'package:notes/data/repository/search_repository.dart';
+import 'package:notes/data/repository/settings_repository.dart';
+import 'package:notes/data/seed.dart';
 import 'package:notes/domain/model/search.dart';
+import 'package:notes/domain/model/settings.dart';
 
 import 'schema_v1.dart';
+import 'schema_v2.dart';
+
+Future<List<String>> _schemaOf(AppDatabase db) async => [
+  for (final row
+      in await db
+          .customSelect(
+            "SELECT type || ' ' || name AS entry FROM sqlite_master "
+            "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name",
+          )
+          .get())
+    row.read<String>('entry'),
+];
+
+AppDatabase _fresh() {
+  final db = AppDatabase(
+    DatabaseConnection(
+      NativeDatabase.memory(),
+      closeStreamsSynchronously: true,
+    ),
+  );
+  addTearDown(db.close);
+  return db;
+}
+
+void main() {
+  group('from version 1', _fromVersion1);
+  group('from version 2', _fromVersion2);
+}
 
 /// An install from before labels and search, upgraded in place.
-void main() {
+void _fromVersion1() {
   late AppDatabase upgraded;
 
   setUp(() {
@@ -90,24 +121,67 @@ void main() {
   });
 
   test('ends with the same tables, indexes, and triggers as a new install', () async {
-    final fresh = AppDatabase(
-      DatabaseConnection(
-        NativeDatabase.memory(),
-        closeStreamsSynchronously: true,
+    expect(await _schemaOf(upgraded), await _schemaOf(_fresh()));
+  });
+}
+
+/// An install from before settings, upgraded in place.
+void _fromVersion2() {
+  late AppDatabase upgraded;
+
+  AppDatabase open({required bool withNotes}) => AppDatabase(
+    DatabaseConnection(
+      NativeDatabase.memory(
+        setup: (raw) {
+          schemaV2.forEach(raw.execute);
+          if (withNotes) {
+            raw.execute(
+              'INSERT INTO notes (id, title, body, sort_key, '
+              'created_at_ms, updated_at_ms) '
+              "VALUES ('n1', 'Bike', 'Rear brake pads', 'n', 0, 0)",
+            );
+          }
+          raw.userVersion = 2;
+        },
       ),
+      closeStreamsSynchronously: true,
+    ),
+  );
+
+  tearDown(() async {
+    await upgraded.close();
+  });
+
+  test('keeps notes, and search still finds them', () async {
+    upgraded = open(withNotes: true);
+
+    expect((await upgraded.noteDao.loadNote('n1'))!.title, 'Bike');
+    final results = await SearchRepository(
+      upgraded.searchDao,
+    ).search(const SearchQuery(text: 'brake'));
+    expect([for (final note in results.notes) note.id], ['n1']);
+  });
+
+  test('starts every setting at its default', () async {
+    upgraded = open(withNotes: true);
+
+    expect(
+      await SettingsRepository(upgraded.preferenceDao).load(),
+      const AppSettings(),
     );
-    addTearDown(fresh.close);
+  });
 
-    Future<List<String>> schemaOf(AppDatabase db) async => [
-      for (final row in await db
-          .customSelect(
-            "SELECT type || ' ' || name AS entry FROM sqlite_master "
-            "WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name",
-          )
-          .get())
-        row.read<String>('entry'),
-    ];
+  test('does not write the starter notes into an install whose notes are all gone', () async {
+    upgraded = open(withNotes: false);
 
-    expect(await schemaOf(upgraded), await schemaOf(fresh));
+    await seedIfEmpty(upgraded.noteDao);
+
+    expect(await upgraded.noteDao.countNotes(), 0);
+  });
+
+  test('ends with the same tables, indexes, and triggers as a new install', () async {
+    upgraded = open(withNotes: false);
+
+    expect(await _schemaOf(upgraded), await _schemaOf(_fresh()));
   });
 }

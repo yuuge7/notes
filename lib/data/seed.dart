@@ -3,17 +3,27 @@ import 'package:notes/core/util/ids.dart';
 import 'package:notes/core/util/sort_key.dart';
 import 'package:notes/data/db/database.dart';
 import 'package:notes/data/db/note_dao.dart';
+import 'package:notes/data/db/preference_dao.dart';
 import 'package:notes/domain/model/note_type.dart';
 import 'package:notes/domain/model/pigment.dart';
 
-/// First-run content.
+/// First-run content, written once: on the first run of an install that
+/// holds no notes. Deleting every note later, or replacing them all with an
+/// empty import, does not bring the starter notes back.
 ///
 /// Real sentences, not lorem: the grid only tells the truth about the design
 /// when the cards hold the kind of text people actually capture — a two-word
 /// reminder next to a paragraph next to a half-checked list.
 Future<void> seedIfEmpty(NoteDao dao) async {
-  if (await dao.countNotes() > 0) return;
+  final preferences = dao.attachedDatabase.preferenceDao;
+  if (await preferences.read(PreferenceDao.seeded) != null) return;
+  await dao.inTransaction(() async {
+    if (await dao.countNotes() == 0) await _seed(dao);
+    await preferences.write(PreferenceDao.seeded, 'true');
+  });
+}
 
+Future<void> _seed(NoteDao dao) async {
   final now = DateTime.now();
   DateTime at(int daysAgo, int hour, int minute) => DateTime(
     now.year,

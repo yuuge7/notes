@@ -8,6 +8,7 @@ import 'package:notes/core/theme/app_theme.dart';
 import 'package:notes/core/ui/undo.dart';
 import 'package:notes/data/notifications/notification_reminder_scheduler.dart';
 import 'package:notes/data/providers.dart';
+import 'package:notes/domain/model/settings.dart';
 import 'package:notes/features/editor/editor_outcome.dart';
 import 'package:notes/features/editor/editor_screen.dart';
 import 'package:notes/features/notes/notes_providers.dart';
@@ -27,8 +28,25 @@ class _NotesAppState extends ConsumerState<NotesApp> {
   void initState() {
     super.initState();
     _lifecycle = AppLifecycleListener(onResume: _onResume);
+    unawaited(_holdFirstFrameForTheme());
     unawaited(_startReminders());
     unawaited(_startMedia());
+  }
+
+  /// Keeps the launch screen up until the chosen theme is known, so a person
+  /// who picked dark does not see a light first frame flash by. The wait is
+  /// capped: a slow or failing read shows the system theme instead.
+  Future<void> _holdFirstFrameForTheme() async {
+    final binding = WidgetsBinding.instance..deferFirstFrame();
+    try {
+      await ref
+          .read(appSettingsProvider.future)
+          .timeout(const Duration(seconds: 1));
+    } on Object {
+      // The system theme it is.
+    } finally {
+      binding.allowFirstFrame();
+    }
   }
 
   /// Starts clearing away image files nothing refers to, and brings back
@@ -95,11 +113,23 @@ class _NotesAppState extends ConsumerState<NotesApp> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ref.watch(
+      appSettingsProvider.select((settings) => settings.value?.theme),
+    );
     return MaterialApp.router(
       title: 'Notes',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
+      // The theme cross-fades when changed, unless motion is turned down.
+      themeAnimationStyle: MediaQuery.maybeDisableAnimationsOf(context) ?? false
+          ? AnimationStyle.noAnimation
+          : null,
+      themeMode: switch (theme) {
+        ThemeChoice.light => ThemeMode.light,
+        ThemeChoice.dark => ThemeMode.dark,
+        ThemeChoice.system || null => ThemeMode.system,
+      },
       routerConfig: appRouter,
       builder: (context, child) {
         // Edge-to-edge: the ground colour runs under the status and gesture

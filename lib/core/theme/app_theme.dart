@@ -136,6 +136,18 @@ abstract final class AppTheme {
         checkColor: WidgetStateProperty.all(colors.onAccent),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? colors.accent
+              : colors.inkMuted,
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colors.accent,
+        linearTrackColor: colors.hairline,
+        linearMinHeight: 2,
+      ),
       popupMenuTheme: PopupMenuThemeData(
         color: colors.card,
         surfaceTintColor: Colors.transparent,

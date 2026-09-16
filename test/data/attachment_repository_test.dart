@@ -184,7 +184,7 @@ void main() {
           ),
         ),
       );
-      await notes.purgeExpiredTrash();
+      await notes.purgeExpiredTrash(const Duration(days: 7));
     }),
   ]) {
     test('no files are left after $way', () async {

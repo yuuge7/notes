@@ -11,6 +11,7 @@ environment:
 
 dependencies:
   animations: ^3.0.0
+  archive: ^4.3.0
   collection: ^1.19.1
   drift: ^2.34.4
   drift_flutter: 0.3.1

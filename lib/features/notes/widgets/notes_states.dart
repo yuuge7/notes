@@ -3,6 +3,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:notes/core/theme/app_colors.dart';
 import 'package:notes/core/theme/tokens.dart';
 import 'package:notes/core/theme/typography.dart';
+import 'package:notes/domain/model/settings.dart';
 
 /// Shared frame for the states a shelf can be in.
 class StateMessage extends StatelessWidget {
@@ -103,14 +104,19 @@ class ArchiveEmpty extends StatelessWidget {
 }
 
 class TrashEmpty extends StatelessWidget {
-  const TrashEmpty({super.key});
+  const TrashEmpty({required this.retention, super.key});
+
+  /// How long deleted notes wait here, as chosen in settings.
+  final TrashRetention retention;
 
   @override
   Widget build(BuildContext context) {
-    return const StateMessage(
+    return StateMessage(
       eyebrow: 'TRASH',
       headline: 'Trash is empty',
-      body: 'Deleted notes wait here for seven days before they are removed.',
+      body:
+          'Deleted notes wait here for ${retention.label} before they are '
+          'removed.',
     );
   }
 }

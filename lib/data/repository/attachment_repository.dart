@@ -90,6 +90,21 @@ class AttachmentRepository {
     return (added: added, failed: failed);
   }
 
+  /// Runs [write] with the files at [relPaths] kept from any sweep meanwhile,
+  /// for files written before the rows that refer to them, as an import
+  /// writes them.
+  Future<T> holdFiles<T>(
+    List<String> relPaths,
+    Future<T> Function() write,
+  ) async {
+    final held = relPaths.where(_writing.add).toList();
+    try {
+      return await write();
+    } finally {
+      _writing.removeAll(held);
+    }
+  }
+
   /// Takes an image off its note. The row stays as a tombstone and the files
   /// stay on disk, so [restore] can put it back; the sweep at start-up clears
   /// the files.
