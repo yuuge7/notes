@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A plain paper card, as a note with no colour. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/card" />
+            <stroke android:width="1dp" android:color="@color/hairline" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+</layer-list>

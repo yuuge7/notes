@@ -13,6 +13,7 @@ import 'package:notes/data/db/database.dart';
 import 'package:notes/data/providers.dart';
 import 'package:notes/data/seed.dart';
 
+import '../support/fake_home_widgets.dart';
 import '../support/fake_phone_system.dart';
 import '../support/fake_reminder_scheduler.dart';
 
@@ -72,6 +73,7 @@ void main() {
           cacheRootProvider.overrideWith((ref) async => media),
           reminderSchedulerProvider.overrideWithValue(FakeReminderScheduler()),
           phoneSystemProvider.overrideWithValue(FakePhoneSystem()),
+          homeWidgetsProvider.overrideWithValue(FakeHomeWidgets()),
         ],
         child: MaterialApp.router(
           theme: AppTheme.light(),

@@ -1,0 +1,83 @@
+package com.ionel.notes.widgets
+
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import com.ionel.notes.MainActivity
+
+/**
+ * How a tap on a widget reaches the app: an intent to MainActivity naming
+ * what to do, which the app reads as a widget action.
+ */
+object WidgetLaunch {
+    private const val ACTION = "com.ionel.notes.WIDGET"
+    private const val EXTRA_ACTION = "widgetAction"
+    private const val EXTRA_NOTE = "noteId"
+
+    const val NEW_NOTE = "newNote"
+    const val NEW_LIST = "newList"
+    const val ADD_PHOTOS = "addPhotos"
+    const val TAKE_PHOTO = "takePhoto"
+    private const val OPEN = "open"
+
+    /** Starts [action] in the app. Each action has a request code of its own, so their intents stay apart. */
+    fun pending(context: Context, action: String): PendingIntent {
+        val code = when (action) {
+            NEW_NOTE -> 1
+            NEW_LIST -> 2
+            ADD_PHOTOS -> 3
+            TAKE_PHOTO -> 4
+            else -> error("Unknown widget action $action")
+        }
+        return PendingIntent.getActivity(
+            context,
+            code,
+            intent(context).putExtra(EXTRA_ACTION, action),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+
+    /** Opens the app as the launcher icon does. */
+    fun app(context: Context): PendingIntent = PendingIntent.getActivity(
+        context,
+        5,
+        Intent(context, MainActivity::class.java)
+            .setAction(Intent.ACTION_MAIN)
+            .addCategory(Intent.CATEGORY_LAUNCHER),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    /**
+     * The intent every note in the list opens with, completed by [openNote].
+     * It must be mutable for the note to be filled in.
+     */
+    fun noteTemplate(context: Context): PendingIntent = PendingIntent.getActivity(
+        context,
+        6,
+        intent(context),
+        (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0) or
+            PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    /** What one note in the list adds to [noteTemplate]. */
+    fun openNote(noteId: String): Intent =
+        Intent().putExtra(EXTRA_ACTION, OPEN).putExtra(EXTRA_NOTE, noteId)
+
+    /**
+     * The action [intent] carries, as the app reads it, or null for an intent
+     * that is not a widget tap. An intent brought back from recents is not a
+     * new tap, and would open the same note again.
+     */
+    fun read(intent: Intent?): Map<String, String>? {
+        if (intent?.action != ACTION) return null
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return null
+        val action = intent.getStringExtra(EXTRA_ACTION) ?: return null
+        val noteId = intent.getStringExtra(EXTRA_NOTE)
+        return if (noteId == null) mapOf("action" to action) else mapOf("action" to action, "noteId" to noteId)
+    }
+
+    private fun intent(context: Context) = Intent(context, MainActivity::class.java)
+        .setAction(ACTION)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+}

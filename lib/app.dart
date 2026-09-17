@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,11 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:notes/core/router/router.dart';
 import 'package:notes/core/theme/app_theme.dart';
 import 'package:notes/core/ui/undo.dart';
+import 'package:notes/data/device/home_widgets.dart';
+import 'package:notes/data/media/photo_source.dart';
 import 'package:notes/data/notifications/notification_reminder_scheduler.dart';
 import 'package:notes/data/providers.dart';
 import 'package:notes/domain/model/settings.dart';
 import 'package:notes/features/editor/editor_outcome.dart';
-import 'package:notes/features/editor/editor_screen.dart';
 import 'package:notes/features/notes/notes_providers.dart';
 import 'package:notes/features/reminders/reminder_providers.dart';
 
@@ -23,6 +25,7 @@ class NotesApp extends ConsumerStatefulWidget {
 
 class _NotesAppState extends ConsumerState<NotesApp> {
   late final AppLifecycleListener _lifecycle;
+  StreamSubscription<WidgetAction>? _widgetActions;
 
   @override
   void initState() {
@@ -31,6 +34,7 @@ class _NotesAppState extends ConsumerState<NotesApp> {
     unawaited(_holdFirstFrameForTheme());
     unawaited(_startReminders());
     unawaited(_startMedia());
+    unawaited(_startWidgets());
   }
 
   /// Keeps the launch screen up until the chosen theme is known, so a person
@@ -56,18 +60,78 @@ class _NotesAppState extends ConsumerState<NotesApp> {
     ref.read(mediaJanitorProvider);
     final lost = await ref.read(photoSourceProvider).recoverLost();
     if (lost.isEmpty) return;
-    final context = appRouter.routerDelegate.navigatorKey.currentContext;
+    final context = await _navigator();
     if (context == null || !context.mounted) return;
-    final repository = ref.read(noteRepositoryProvider);
-    final outcome = await Navigator.of(context).push<EditorOutcome>(
-      MaterialPageRoute(builder: (_) => EditorScreen(initialPhotos: lost)),
+    await openEditor(
+      context,
+      ref.read(noteRepositoryProvider),
+      initialPhotos: lost,
     );
-    if (context.mounted) await applyEditorOutcome(context, repository, outcome);
+  }
+
+  /// Keeps the home screen widgets showing the notes, and follows taps on
+  /// them: the one that started the app, and any that come while it runs.
+  Future<void> _startWidgets() async {
+    final widgets = ref.read(homeWidgetsProvider);
+    _widgetActions = widgets.actions.listen(
+      (action) => unawaited(_onWidgetAction(action)),
+    );
+    await ref.read(appStartupProvider.future);
+    ref.read(homeWidgetSyncProvider);
+    final launch = await widgets.takeLaunchAction();
+    if (launch != null) await _onWidgetAction(launch);
+  }
+
+  Future<void> _onWidgetAction(WidgetAction action) async {
+    switch (action) {
+      case OpenNote(:final noteId):
+        await _open(noteId);
+      case NewNote():
+        await _openNew();
+      case NewList():
+        await _openNew(asList: true);
+      case AddPhotos():
+        await _openNew(photos: (source) => source.pickPhotos());
+      case TakePhoto():
+        await _openNew(photos: (source) async => [?await source.takePhoto()]);
+    }
+  }
+
+  /// Opens a new note over whatever is showing. A photo note opens only once
+  /// there is a photo, as it does from the compose bar.
+  Future<void> _openNew({
+    bool asList = false,
+    Future<List<File>> Function(PhotoSource source)? photos,
+  }) async {
+    final taken = photos == null
+        ? const <File>[]
+        : await photos(ref.read(photoSourceProvider));
+    if (photos != null && taken.isEmpty) return;
+    final context = await _navigator();
+    if (context == null || !context.mounted) return;
+    await openEditor(
+      context,
+      ref.read(noteRepositoryProvider),
+      startAsChecklist: asList,
+      initialPhotos: taken,
+    );
+  }
+
+  /// The root navigator's context. Opened from a notification or a widget,
+  /// the app may get here before its first frame has built the navigator.
+  Future<BuildContext?> _navigator() async {
+    var context = appRouter.routerDelegate.navigatorKey.currentContext;
+    if (context == null) {
+      await WidgetsBinding.instance.endOfFrame;
+      context = appRouter.routerDelegate.navigatorKey.currentContext;
+    }
+    return context;
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
+    unawaited(_widgetActions?.cancel());
     super.dispose();
   }
 
@@ -93,11 +157,12 @@ class _NotesAppState extends ConsumerState<NotesApp> {
     unawaited(ref.read(reminderSyncProvider).refresh());
   }
 
-  /// Opens a note from its notification, over whatever is showing.
+  /// Opens a note from its notification or the widget, over whatever is
+  /// showing.
   Future<void> _open(String noteId) async {
     final repository = ref.read(noteRepositoryProvider);
     final note = await repository.load(noteId);
-    final context = appRouter.routerDelegate.navigatorKey.currentContext;
+    final context = await _navigator();
     if (context == null || !context.mounted) return;
     if (note == null) {
       showMessage(ScaffoldMessenger.of(context), 'That note has been deleted');

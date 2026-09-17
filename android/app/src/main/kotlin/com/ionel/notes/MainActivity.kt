@@ -7,9 +7,12 @@ import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import com.ionel.notes.widgets.HomeWidgetsChannel
+import com.ionel.notes.widgets.WidgetLaunch
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -24,6 +27,9 @@ import java.util.concurrent.Executors
  * permission: Android grants access to the one file the person picks. Files
  * are copied as streams on a background thread, so an export full of photos
  * never has to fit in memory or cross the channel as bytes.
+ *
+ * Taps on the home screen widgets arrive here too, as the intent that starts
+ * the activity or a new one while it runs.
  */
 class MainActivity : FlutterActivity() {
     private val io = Executors.newSingleThreadExecutor()
@@ -33,8 +39,26 @@ class MainActivity : FlutterActivity() {
     private var pending: MethodChannel.Result? = null
     private var pendingSource: File? = null
 
+    private var widgets: HomeWidgetsChannel? = null
+
+    /** Whether Android rebuilt this activity, whose intent was already acted on. */
+    private var restored = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        restored = savedInstanceState != null
+        super.onCreate(savedInstanceState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        WidgetLaunch.read(intent)?.let { widgets?.deliver(it) }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        widgets = HomeWidgetsChannel(applicationContext, flutterEngine.dartExecutor.binaryMessenger).apply {
+            launchedWith(if (restored) null else WidgetLaunch.read(intent))
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 if (pending != null) {

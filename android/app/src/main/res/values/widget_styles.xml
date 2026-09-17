@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The widget's text, from lib/core/theme/typography.dart in size and
+         colour. A launcher draws widgets without the app's own fonts, so the
+         system's serif stands in for Literata, its mono for Martian Mono, and
+         its sans for Schibsted Grotesk. -->
+    <style name="WidgetText" />
+    <style name="WidgetText.Heading">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:letterSpacing">-0.014</item>
+        <item name="android:textColor">@color/ink</item>
+    </style>
+    <style name="WidgetText.NoteTitle">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:lineSpacingMultiplier">1.08</item>
+        <item name="android:textColor">@color/ink</item>
+    </style>
+    <style name="WidgetText.NoteBody">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:lineSpacingMultiplier">1.2</item>
+        <item name="android:textColor">@color/ink</item>
+    </style>
+    <style name="WidgetText.NoteBody.Muted">
+        <item name="android:textColor">@color/ink_muted</item>
+    </style>
+    <style name="WidgetText.Meta">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:textColor">@color/ink_muted</item>
+    </style>
+    <style name="WidgetText.Ui">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/ink_muted</item>
+    </style>
+</resources>

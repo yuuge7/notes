@@ -1,8 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- From lib/core/theme/app_colors.dart. The window shows these before
-         Flutter draws, so the launch matches the app's first frame. -->
+    <!-- From lib/core/theme/app_colors.dart, which is where they change;
+         test/core/android_resources_test.dart keeps the two the same.
+         The window shows ground before Flutter draws, so the launch
+         matches the first frame, and the home screen widgets draw
+         entirely from these. -->
     <color name="ground">#F4F5F3</color>
+    <color name="card">#FFFFFF</color>
+    <color name="ink">#16181A</color>
+    <color name="ink_muted">#5C6360</color>
+    <color name="hairline">#E0E2DE</color>
+    <color name="accent">#28706D</color>
+    <color name="spine_vermilion">#C9452E</color>
+    <color name="tint_vermilion">#FBEDE9</color>
+    <color name="spine_amber">#B77A16</color>
+    <color name="tint_amber">#FBF3E2</color>
+    <color name="spine_moss">#4F7A3A</color>
+    <color name="tint_moss">#EFF5EA</color>
+    <color name="spine_verdigris">#2E7B78</color>
+    <color name="tint_verdigris">#E9F4F3</color>
+    <color name="spine_indigo">#3D53A8</color>
+    <color name="tint_indigo">#ECEFFA</color>
+    <color name="spine_plum">#7A3E86</color>
+    <color name="tint_plum">#F5EDF7</color>
+    <color name="spine_clay">#8A5A44</color>
+    <color name="tint_clay">#F6EEE9</color>
     <!-- The icon: a page of paper on verdigris, with a vermilion spine. -->
     <color name="icon_background">#2E7B78</color>
     <color name="icon_paper">#F4F5F3</color>

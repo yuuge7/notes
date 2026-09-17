@@ -16,6 +16,7 @@ import 'package:notes/data/seed.dart';
 import 'package:notes/domain/model/note.dart';
 
 import '../support/fake_document_picker.dart';
+import '../support/fake_home_widgets.dart';
 import '../support/fake_image_processor.dart';
 import '../support/fake_phone_system.dart';
 import '../support/fake_photo_source.dart';
@@ -59,6 +60,7 @@ void main() {
     photoSourceProvider.overrideWithValue(FakePhotoSource()),
     reminderSchedulerProvider.overrideWithValue(FakeReminderScheduler()),
     phoneSystemProvider.overrideWithValue(FakePhoneSystem(maker: 'Xiaomi')),
+    homeWidgetsProvider.overrideWithValue(FakeHomeWidgets()),
   ];
 
   Future<void> settle(WidgetTester tester, {int turns = 8}) async {

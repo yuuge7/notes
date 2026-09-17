@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A moss card: the spine shows as the sliver of spine colour the tint leaves
+     uncovered on the left, curving with the corners as the clipped spine does in
+     the app. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/spine_moss" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <item android:left="3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/tint_moss" />
+            <corners
+                android:topLeftRadius="11dp"
+                android:bottomLeftRadius="11dp"
+                android:topRightRadius="14dp"
+                android:bottomRightRadius="14dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <stroke android:width="1dp" android:color="@color/hairline" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+</layer-list>

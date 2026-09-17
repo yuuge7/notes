@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material's edit glyph, as on the compose bar. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/ink_muted"
+        android:pathData="M14.062 9 15 9.938 5.906 18.984H5.016V18.094L14.062 9ZM17.672 3C17.391 3 17.156 3.094 16.969 3.281L15.141 5.109L18.891 8.859L20.719 7.031C21.094 6.656 21.094 6 20.719 5.625L18.375 3.281C18.188 3.094 17.906 3 17.672 3ZM14.062 6.188 3 17.25V21H6.75L17.812 9.938L14.062 6.188Z" />
+</vector>

@@ -10,6 +10,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:notes/app.dart';
 import 'package:notes/data/db/database.dart';
 import 'package:notes/data/db/note_dao.dart';
+import 'package:notes/data/device/home_widgets.dart';
 import 'package:notes/data/device/phone_system.dart';
 import 'package:notes/data/notifications/notification_reminder_scheduler.dart';
 import 'package:notes/data/providers.dart';
@@ -33,7 +34,8 @@ import 'package:notes/domain/model/settings.dart';
 /// ```
 ///
 /// While it runs, the app keeps to a database and a media folder of its own,
-/// and leaves the reminders already waiting and the theme as they are.
+/// and leaves the reminders already waiting, the theme, and the home screen
+/// widgets as they are.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -67,6 +69,7 @@ void main() {
           cacheRootProvider.overrideWith((ref) async => media),
           reminderSchedulerProvider.overrideWithValue(_OwnRange()),
           phoneSystemProvider.overrideWithValue(_StillPhone()),
+          homeWidgetsProvider.overrideWithValue(_OwnWidgets()),
         ],
         child: const NotesApp(),
       ),
@@ -124,6 +127,25 @@ class _OwnRange extends NotificationReminderScheduler {
     for (final id in await super.pendingIds())
       if (id >= _firstId) id,
   };
+}
+
+/// Leaves the phone's home screen widgets showing the phone's own notes, not
+/// this database's.
+class _OwnWidgets implements HomeWidgets {
+  @override
+  Future<void> publish(String snapshot) async {}
+
+  @override
+  Future<WidgetAction?> takeLaunchAction() async => null;
+
+  @override
+  Stream<WidgetAction> get actions => const Stream.empty();
+
+  @override
+  Future<bool> canPin() async => false;
+
+  @override
+  Future<void> pin(HomeWidget widget) async {}
 }
 
 /// Keeps the theme chosen in the phone's own copy of the app: this database

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material's camera glyph, the compose bar's Take a photo. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/ink_muted"
+        android:pathData="M14.109 3.984 15.938 6H20.016V18H3.984V6H8.062L9.891 3.984H14.109ZM15 2.016H9L7.172 3.984H3.984C2.906 3.984 2.016 4.922 2.016 6V18C2.016 19.078 2.906 20.016 3.984 20.016H20.016C21.094 20.016 21.984 19.078 21.984 18V6C21.984 4.922 21.094 3.984 20.016 3.984H16.828L15 2.016ZM12 9C13.641 9 15 10.359 15 12C15 13.641 13.641 15 12 15C10.359 15 9 13.641 9 12C9 10.359 10.359 9 12 9ZM12 6.984C9.234 6.984 6.984 9.234 6.984 12C6.984 14.766 9.234 17.016 12 17.016C14.766 17.016 17.016 14.766 17.016 12C17.016 9.234 14.766 6.984 12 6.984Z" />
+</vector>

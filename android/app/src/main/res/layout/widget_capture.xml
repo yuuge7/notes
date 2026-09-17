@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The new note widget, as the compose bar: Take a note, then New list, Add
+     photos, and Take a photo. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:background="@drawable/widget_bar"
+        android:gravity="center_vertical"
+        android:minHeight="52dp"
+        android:orientation="horizontal"
+        android:paddingEnd="4dp">
+
+        <LinearLayout
+            android:id="@+id/capture_note"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/widget_press"
+            android:contentDescription="@string/widget_take_note"
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_widget_edit" />
+
+            <TextView
+                style="@style/WidgetText.Ui"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:ellipsize="end"
+                android:importantForAccessibility="no"
+                android:maxLines="1"
+                android:text="@string/widget_take_note" />
+        </LinearLayout>
+        <ImageView
+            android:id="@+id/capture_list"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/widget_press"
+            android:contentDescription="@string/widget_new_list"
+            android:scaleType="center"
+            android:src="@drawable/ic_widget_list" />
+        <ImageView
+            android:id="@+id/capture_photos"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/widget_press"
+            android:contentDescription="@string/widget_add_photos"
+            android:scaleType="center"
+            android:src="@drawable/ic_widget_image" />
+        <ImageView
+            android:id="@+id/capture_camera"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/widget_press"
+            android:contentDescription="@string/widget_take_photo"
+            android:scaleType="center"
+            android:src="@drawable/ic_widget_camera" />
+    </LinearLayout>
+</FrameLayout>

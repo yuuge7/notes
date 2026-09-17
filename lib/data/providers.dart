@@ -5,7 +5,9 @@ import 'package:notes/core/util/app_version.dart';
 import 'package:notes/data/backup/document_picker.dart';
 import 'package:notes/data/db/database.dart';
 import 'package:notes/data/db/note_dao.dart';
+import 'package:notes/data/device/home_widgets.dart';
 import 'package:notes/data/device/phone_system.dart';
+import 'package:notes/data/home_widgets/home_widget_sync.dart';
 import 'package:notes/data/media/compress_image_processor.dart';
 import 'package:notes/data/media/image_processor.dart';
 import 'package:notes/data/media/media_janitor.dart';
@@ -84,6 +86,26 @@ Future<Directory> cacheRoot(Ref ref) => getTemporaryDirectory();
 /// The phone's own settings. Tests put a fake in its place.
 @Riverpod(keepAlive: true)
 PhoneSystem phoneSystem(Ref ref) => DevicePhoneSystem();
+
+/// The home screen widgets. Tests put a fake in its place.
+@Riverpod(keepAlive: true)
+HomeWidgets homeWidgets(Ref ref) => DeviceHomeWidgets();
+
+/// Keeps the home screen widgets up to date from the moment it is first read.
+@Riverpod(keepAlive: true)
+HomeWidgetSync homeWidgetSync(Ref ref) {
+  final sync = HomeWidgetSync(
+    ref.watch(noteRepositoryProvider),
+    ref.watch(homeWidgetsProvider),
+  )..start();
+  ref.onDispose(() => unawaited(sync.dispose()));
+  return sync;
+}
+
+/// Whether the launcher lets the app place its widgets, which settings offers
+/// only then.
+@riverpod
+Future<bool> widgetPinning(Ref ref) => ref.watch(homeWidgetsProvider).canPin();
 
 /// The system's pickers and share sheet. Tests put a fake in its place.
 @Riverpod(keepAlive: true)

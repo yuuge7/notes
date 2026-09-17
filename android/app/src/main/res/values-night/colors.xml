@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The dark theme's tokens, as in values/colors.xml. -->
     <color name="ground">#0F1113</color>
+    <color name="card">#191C1E</color>
+    <color name="ink">#E9EDEA</color>
+    <color name="ink_muted">#9AA3A0</color>
+    <color name="hairline">#262A2C</color>
+    <color name="accent">#5FB3AE</color>
+    <color name="spine_vermilion">#E0705A</color>
+    <color name="tint_vermilion">#241614</color>
+    <color name="spine_amber">#D69A38</color>
+    <color name="tint_amber">#221B10</color>
+    <color name="spine_moss">#7FAE68</color>
+    <color name="tint_moss">#151E14</color>
+    <color name="spine_verdigris">#5FB3AE</color>
+    <color name="tint_verdigris">#101F1E</color>
+    <color name="spine_indigo">#7C8FD9</color>
+    <color name="tint_indigo">#141827</color>
+    <color name="spine_plum">#B47ABF</color>
+    <color name="tint_plum">#1F1424</color>
+    <color name="spine_clay">#BA8871</color>
+    <color name="tint_clay">#201714</color>
 </resources>

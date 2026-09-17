@@ -4,6 +4,7 @@ import 'package:notes/core/theme/app_colors.dart';
 import 'package:notes/core/theme/tokens.dart';
 import 'package:notes/core/theme/typography.dart';
 import 'package:notes/core/ui/marked_text.dart';
+import 'package:notes/core/util/note_description.dart';
 import 'package:notes/core/util/search_text.dart';
 import 'package:notes/domain/model/checklist_item.dart';
 import 'package:notes/domain/model/note.dart';
@@ -129,28 +130,8 @@ class NoteCard extends StatelessWidget {
     );
   }
 
-  String _semanticLabel(BuildContext context) {
-    final parts = <String>[
-      if (note.pinned) 'Pinned',
-      if (note.title.trim().isNotEmpty)
-        _sentence(note.title)
-      else
-        'Untitled note',
-      if (note.isChecklist)
-        '${note.checkedItems.length} of ${note.items.length} done'
-      else if (note.body.trim().isNotEmpty)
-        _sentence(note.body),
-      if (note.attachments.length == 1)
-        '1 image'
-      else if (note.attachments.length > 1)
-        '${note.attachments.length} images',
-      if (note.labels.isNotEmpty)
-        'Labels: ${note.labels.map((l) => l.name).join(', ')}',
-      ?_reminderLabel(context),
-      if (!note.pigment.isNone) note.pigment.label,
-    ];
-    return parts.join('. ');
-  }
+  String _semanticLabel(BuildContext context) =>
+      describeNote(note, reminder: _reminderLabel(context));
 
   /// `Reminder, overdue: yesterday 9:00 am`, or null without a reminder.
   String? _reminderLabel(BuildContext context) {
@@ -164,11 +145,6 @@ class NoteCard extends StatelessWidget {
     final when = ReminderFormat.full(context, next, note.reminderRule);
     return 'Reminder$state: ${when.toLowerCase()}';
   }
-
-  /// Trims closing punctuation so joining parts with ". " never reads out a
-  /// doubled stop, as in "down to the metal.. Moss".
-  static String _sentence(String text) =>
-      text.trim().replaceFirst(RegExp(r'[.!?…]+$'), '');
 }
 
 class _CardBody extends StatelessWidget {

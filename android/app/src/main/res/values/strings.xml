@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The home screen widgets, as the launcher's list names them. -->
+    <string name="widget_notes_label">Notes</string>
+    <string name="widget_notes_description">Pinned notes, then the latest</string>
+    <string name="widget_capture_label">New note</string>
+    <string name="widget_capture_description">A note, a list, or a photo in one tap</string>
+
+    <string name="widget_notes_title">Notes</string>
+    <plurals name="widget_notes_count">
+        <item quantity="one">%d NOTE</item>
+        <item quantity="other">%d NOTES</item>
+    </plurals>
+    <!-- Before the app has run once, there is nothing to show yet. -->
+    <string name="widget_notes_waiting">Open Notes once, and your notes show here</string>
+    <string name="widget_notes_empty">Tap + to take a note</string>
+    <string name="widget_empty_note">Empty note</string>
+    <string name="widget_more">+%d more</string>
+
+    <string name="widget_take_note">Take a note</string>
+    <string name="widget_new_list">New list</string>
+    <string name="widget_add_photos">Add photos</string>
+    <string name="widget_take_photo">Take a photo</string>
+
+    <!-- The widget picker's preview of the notes widget. -->
+    <string name="widget_preview_note_title">Flat viewing — Aurel Vlaicu 12</string>
+    <string name="widget_preview_note_body">Mihai shows it Thursday at 18:00. Ask whether the boiler was serviced this year.</string>
+    <string name="widget_preview_list_title">Groceries</string>
+    <string name="widget_preview_list_item_1">Oat milk</string>
+    <string name="widget_preview_list_item_2">Sourdough</string>
+    <string name="widget_preview_count">8 NOTES</string>
+</resources>

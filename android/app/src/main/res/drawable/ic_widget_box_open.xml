@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An open checklist item, as on a card. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/ink"
+        android:pathData="M18.984 5.016V18.984H5.016V5.016H18.984ZM18.984 3H5.016C3.891 3 3 3.891 3 5.016V18.984C3 20.109 3.891 21 5.016 21H18.984C20.109 21 21 20.109 21 18.984V5.016C21 3.891 20.109 3 18.984 3Z" />
+</vector>

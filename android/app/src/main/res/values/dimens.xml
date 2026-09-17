@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The corners of a widget's own background. Android 12 and later give
+         every widget the launcher's radius; see values-v31. -->
+    <dimen name="widget_radius">16dp</dimen>
+</resources>

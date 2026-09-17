@@ -9,6 +9,7 @@ import 'package:notes/core/theme/typography.dart';
 import 'package:notes/core/ui/undo.dart';
 import 'package:notes/core/util/app_version.dart';
 import 'package:notes/data/backup/bundle.dart';
+import 'package:notes/data/device/home_widgets.dart';
 import 'package:notes/data/providers.dart';
 import 'package:notes/domain/model/settings.dart';
 import 'package:notes/features/settings/backup_sheets.dart';
@@ -68,6 +69,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final settings =
         ref.watch(appSettingsProvider).value ?? const AppSettings();
     final repository = ref.read(settingsRepositoryProvider);
+    // Offered only where the launcher can place a widget for the app; the
+    // widgets are in the launcher's own list everywhere.
+    final canPin = ref.watch(widgetPinningProvider).value ?? false;
+    final widgets = ref.read(homeWidgetsProvider);
 
     return Scaffold(
       backgroundColor: colors.ground,
@@ -150,6 +155,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               'The trash is checked each time the app starts.',
               muted: true,
             ),
+            if (canPin) ...[
+              const _SectionHeader('HOME SCREEN'),
+              _Action(
+                icon: Icons.view_agenda_outlined,
+                label: 'Add the notes widget',
+                detail: 'Pinned notes, then the latest',
+                onTap: () => unawaited(widgets.pin(HomeWidget.notes)),
+              ),
+              _Action(
+                icon: Icons.edit_outlined,
+                label: 'Add the new note widget',
+                detail: 'A note, a list, or a photo in one tap',
+                onTap: () => unawaited(widgets.pin(HomeWidget.capture)),
+              ),
+            ],
             const _SectionHeader('BACKUP'),
             _Action(
               icon: Icons.upload_file_outlined,

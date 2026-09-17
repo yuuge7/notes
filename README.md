@@ -21,6 +21,9 @@ own. Everything stays on the device: no account, no sign-in, and no network need
 - **Images** from the Android photo picker or the camera, compressed on the device, shown as a mosaic on the
   card and full screen with pinch-to-zoom.
 - **Archive and trash**, with undo, plus Make a copy and Share. The trash keeps notes for 1, 7, or 30 days.
+- **Home screen widgets.** A notes widget shows pinned notes, then the latest, as their cards, and opens
+  any of them in a tap. A new note widget puts the compose bar on the home screen: a note, a list, photos, or
+  the camera. Both can be placed from Settings, and follow the phone's light or dark theme.
 - **Export and import.** Every note, label, and image goes into one zip, saved wherever you choose or shared
   with another app. Import merges it with the notes on the phone, keeping each note's latest edit, or replaces
   them all.
@@ -115,7 +118,8 @@ lib/
   core/util/           sort keys, day grouping, checklist rules, search and share text, reminder times, ids
   data/                Drift database and migrations, full-text index, DAOs, repositories, providers, seed data
   data/backup/         export bundle writer and reader
-  data/device/         the phone's maker, night mode, and background settings, over a platform channel
+  data/device/         the phone's maker, night mode, background settings, and home screen widgets, over platform channels
+  data/home_widgets/   the snapshot of notes the home screen widgets draw from, kept up to date
   data/media/          image files and compression, photo picker and camera, cleanup of unused files
   data/notifications/  notification scheduler, with Done and Snooze handled on a background isolate
   data/reminders/      keeps scheduled notifications in line with stored reminders
@@ -132,6 +136,7 @@ test/                  unit, repository, widget, and accessibility tests; fakes 
 test/goldens/          note card screenshots in every colour and both themes
 integration_test/      create a note, remind it, and wait for the notification on a device
 assets/fonts/          Literata, Schibsted Grotesk, Martian Mono
+android/app/src/main/kotlin/  the pickers and system settings channel, and the home screen widgets
 .github/workflows/     release pipeline
 ```
 
@@ -157,6 +162,9 @@ Tests run against a real in-memory database wherever data is involved. They cove
   come from a newer version; and 5,000 notes exported and replaced in about a second on a desktop.
 - **Settings:** the theme the app wears, where checked list items go, the trash's stay, and schema upgrades
   that keep notes and leave settings at their defaults.
+- **Home screen widgets:** the snapshot they draw from (grid order, open items first, what TalkBack reads),
+  a new snapshot for each change they show and none for changes they do not, taps that open a note or start
+  a note, a list, or a photo note, and the Android colours staying equal to the theme's.
 - **Grid paging:** 250 notes load a hundred at a time as the grid nears its end, and a note dragged to the
   end of what is loaded still lands before the next one.
 - **Finish gate:** every screen and sheet, in both themes on a 360dp-wide phone: touch targets of at least

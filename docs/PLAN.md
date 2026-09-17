@@ -298,6 +298,10 @@ media/thumbs/<attachmentId>.jpg   (added in milestone 6: an import need not rema
   with `flutter_native_splash`: the ground colour for each theme, and on Android 12+ the icon on it, with the
   app's own theme choice handed to Android through `UiModeManager.setApplicationNightMode`.
 - `dataExtractionRules` keep the database, files, and preferences out of cloud backup and device transfer.
+- Home screen widgets (milestone 8), drawn with `RemoteViews` from a JSON snapshot the app writes, so they
+  show notes with the app closed. Their colours are copies of the theme tokens in `res/values*/colors.xml`,
+  kept equal by a test; their faces are the system's serif, mono, and sans, since a launcher does not load
+  an app's font resources.
 - Release: R8 keep rules for the notifications plugin's Gson storage, `res/raw/keep.xml` for the notification
   icon, app bundle output, signing from `key.properties`.
 
@@ -315,8 +319,9 @@ media/thumbs/<attachmentId>.jpg   (added in milestone 6: an import need not rema
 | 5 | Images | Picker, compression, thumbnails, mosaic, viewer, orphan sweep | No file leaks, cold start unaffected |
 | 6 | Import/export + settings | Bundle writer and reader, merge vs replace, settings (theme, purge window, checked-item behavior) | Export → wipe → import round-trips identical content |
 | 7 | Polish + finish gate | All states, accessibility, motion, performance, release build | The gate in §10 is fully green |
+| 8 | Home screen widgets | A notes widget (pinned, then latest) and a new note widget (the compose bar), placing them from settings | Both widgets draw with the app closed, and every tap lands in the right place |
 
-Later, not v1: sync backend, home-screen widget, share-to-app intent, Keep Takeout import, tablet layout.
+Later: sync backend, share-to-app intent, Keep Takeout import, tablet layout.
 
 ---
 
@@ -861,3 +866,56 @@ Carried forward:
 - **Themed icon** not yet seen with themed icons switched on.
 - **Process death with a picker open** loses that call, as in milestone 6.
 - Timings are from one emulator on this desktop.
+
+### Milestone 8 — done (2026-09-17)
+
+Home screen widgets, asked for after v1. Covered by 489 tests in total and checked on the Android 17
+emulator on a release build.
+
+- **Notes widget** (3 by 3, resizable down to 2 by 2): a "Notes" heading with the count and a + for a new
+  note, over the notes as cards in grid order, pinned first, up to 20. Each card is the grid's card in
+  miniature: the pigment tint with its spine curving round the corners, the title, up to five lines of body or
+  five checklist items (open ones first, checked ones muted and struck through, `+N more` after), and a meta
+  line with labels and the image count. TalkBack reads each card as one button, with the same words as the
+  card in the grid.
+- **New note widget** (4 by 1): the compose bar. Take a note, New list, Add photos, and Take a photo, each
+  opening the app straight into that. At three cells the words go, and at two only a note and a list stay, so
+  every button keeps 48dp.
+- **Settings → Home screen** places either widget through the launcher's own confirmation, shown only where
+  the launcher supports it.
+- **How it fits together.** `HomeWidgetSync` watches the grid's first page and hands Android a JSON snapshot
+  whenever what the widget shows changes, from any path that writes a note; a change it does not show, such as
+  a reminder, sends nothing. Kotlin writes the snapshot to `noBackupFilesDir` and redraws, and the widgets read
+  it with the app closed. A tap starts MainActivity with an action; the app opens the note, or a new note,
+  list, or photo note, over whatever is showing. A deleted note says so.
+- On the emulator: both widgets placed from settings; a card tapped with the app in the background, and with
+  its process ended, opened that note; +, New list, Add photos (the photo picker, closed back to the grid with
+  no note), and Take a photo (the camera) all landed; a title edited in the app showed on the widget on
+  return; dark mode redrew both in the dark tokens; at 200% text the heading grew and the cards scrolled; the
+  new note widget resized to three and two cells switched layouts; the picker's preview showed sample notes.
+
+Decisions and findings:
+- **No custom fonts on the home screen.** Launchers draw widgets without loading an app's font resources:
+  Literata bundled as a font resource, by family XML or the file itself, still drew as Roboto. The widgets use
+  the system's serif for note text, its mono for meta, and its sans for the bar, which keeps the reading and
+  meta voices. The bundled copies were dropped again, 1.3 MB.
+- **The widgets follow the phone's theme**, not the one chosen in the app: the launcher resolves their
+  colours against its own night mode.
+- **Reminders are left off the widget.** Done and Snooze change a reminder from the notification without the
+  app running, and the widget would show it stale.
+- **Colours are copies.** `res/values*/colors.xml` now hold every token the widgets need;
+  `android_resources_test.dart` fails if one drifts from `app_colors.dart`. The Material icons are traced from
+  Flutter's own icon font into vector drawables, so they match the compose bar exactly.
+- **Card descriptions** moved out of `NoteCard` into `describeNote`, shared with the widget snapshot.
+- Opening a note from outside the grid, a widget or a notification, waits for the first frame when the app
+  is still starting and its navigator not yet built, rather than giving up.
+- `am force-stop` puts an app in Android's stopped state, and the launcher greys its widgets until it runs
+  again. Ordinary process death does not; checked with `am crash`.
+
+Carried forward:
+- Android 7 to 11 take the pre-12 paths (the list service is the same; the new note widget picks its layout
+  from the width the launcher reports), untested here: the emulator runs Android 17.
+- Only the Pixel launcher was tried. Other launchers size cells differently, and some cannot place a widget
+  from the app, in which case settings leaves the section out.
+- The new note widget on the emulator's home screen was left three cells wide; the launcher would not take
+  the resize back to four.

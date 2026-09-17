@@ -22,6 +22,7 @@ import 'package:notes/features/editor/editor_screen.dart';
 import 'package:notes/features/shelf/shelf_screen.dart';
 
 import '../support/fake_document_picker.dart';
+import '../support/fake_home_widgets.dart';
 import '../support/fake_image_processor.dart';
 import '../support/fake_phone_system.dart';
 import '../support/fake_photo_source.dart';
@@ -35,6 +36,7 @@ void main() {
   late Directory cache;
   late FakeDocumentPicker picker;
   late FakePhoneSystem phone;
+  late FakeHomeWidgets homeWidgets;
 
   setUp(() {
     db = AppDatabase(
@@ -47,6 +49,7 @@ void main() {
     cache = Directory.systemTemp.createTempSync('notes_settings_cache_');
     picker = FakeDocumentPicker();
     phone = FakePhoneSystem();
+    homeWidgets = FakeHomeWidgets();
   });
 
   tearDown(() async {
@@ -66,6 +69,7 @@ void main() {
     photoSourceProvider.overrideWithValue(FakePhotoSource()),
     reminderSchedulerProvider.overrideWithValue(FakeReminderScheduler()),
     phoneSystemProvider.overrideWithValue(phone),
+    homeWidgetsProvider.overrideWithValue(homeWidgets),
   ];
 
   Future<void> settle(WidgetTester tester, {int turns = 8}) async {

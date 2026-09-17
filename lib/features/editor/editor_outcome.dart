@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:notes/core/ui/undo.dart';
 import 'package:notes/data/repository/note_repository.dart';
@@ -49,16 +51,24 @@ final class Copied extends EditorOutcome {
 
 /// Opens the editor as a plain page and applies whatever it hands back.
 ///
-/// Used where there is no card to grow from, such as opening a copy.
+/// Used where there is no card to grow from, such as opening a copy, or a
+/// note or a new one from a notification or the home screen widget.
 Future<void> openEditor(
   BuildContext context,
   NoteRepository repository, {
   String? noteId,
   bool readOnly = false,
+  bool startAsChecklist = false,
+  List<File> initialPhotos = const [],
 }) async {
   final outcome = await Navigator.of(context).push<EditorOutcome>(
     MaterialPageRoute<EditorOutcome>(
-      builder: (_) => EditorScreen(noteId: noteId, readOnly: readOnly),
+      builder: (_) => EditorScreen(
+        noteId: noteId,
+        readOnly: readOnly,
+        startAsChecklist: startAsChecklist,
+        initialPhotos: initialPhotos,
+      ),
     ),
   );
   if (context.mounted) await applyEditorOutcome(context, repository, outcome);
