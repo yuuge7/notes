@@ -24,6 +24,14 @@ class SettingsRepository {
   Future<void> setTrashRetention(TrashRetention retention) =>
       _dao.write(PreferenceDao.trashDays, '${retention.days}');
 
+  /// Whether the hint about phones that stop background apps has been seen
+  /// through: acted on or dismissed. It is shown once.
+  Future<bool> backgroundHintDone() async =>
+      await _dao.read(PreferenceDao.backgroundHintDone) != null;
+
+  Future<void> markBackgroundHintDone() =>
+      _dao.write(PreferenceDao.backgroundHintDone, 'true');
+
   static AppSettings _fromValues(Map<String, String> values) {
     T? named<T extends Enum>(List<T> choices, String key) =>
         choices.firstWhereOrNull((choice) => choice.name == values[key]);

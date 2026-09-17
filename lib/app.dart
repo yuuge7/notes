@@ -113,6 +113,17 @@ class _NotesAppState extends ConsumerState<NotesApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Android 12 and later draw the launch screen from the app's own night
+    // mode, before any Dart runs. Holding the choice there makes the next
+    // launch start in the chosen theme.
+    ref.listen(
+      appSettingsProvider.select((settings) => settings.value?.theme),
+      (_, theme) {
+        if (theme != null) {
+          unawaited(ref.read(phoneSystemProvider).setNightMode(theme));
+        }
+      },
+    );
     final theme = ref.watch(
       appSettingsProvider.select((settings) => settings.value?.theme),
     );

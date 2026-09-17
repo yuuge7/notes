@@ -105,6 +105,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   /// the close does not also tidy or discard the note.
   bool _leaving = false;
   Timer? _debounce;
+  late final AppLifecycleListener _lifecycle;
 
   // The text as last loaded or saved, so closing a note that was only read
   // does not stamp it as edited or mark it changed for sync.
@@ -125,6 +126,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
     _lists = ref.read(checklistRepositoryProvider);
     _labels = ref.read(labelRepositoryProvider);
     _checklist = ChecklistEdits(_lists);
+    _lifecycle = AppLifecycleListener(onInactive: () => unawaited(_saveNow()));
     final id = widget.noteId;
     _noteId = id;
     if (id == null) {
@@ -146,6 +148,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _debounce?.cancel();
     // Everything the save needs is read synchronously at the start of the
     // flush, before the controllers below are disposed.
@@ -204,6 +207,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _debounceDelay,
       () => unawaited(_save(_title.text, _body.text)),
     );
+  }
+
+  /// Saves what is typed as soon as the app starts to leave the screen,
+  /// rather than when the debounce ends: Android may end the process in the
+  /// background before then, and the page does not come back with it.
+  /// Inactive is the first of the states on the way out, ahead of hidden by
+  /// as long as the next app takes to appear.
+  Future<void> _saveNow() async {
+    if (widget.readOnly) return;
+    _debounce?.cancel();
+    await _checklist.flush();
+    await _save(_title.text, _body.text);
   }
 
   /// Saves the title, and the body of a text note. A list has no body: its
@@ -489,6 +504,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           content: const Text(
             'Notifications are off for Notes, so this reminder will not ring',
           ),
+          persist: persistsWithAction(messenger),
           action: SnackBarAction(
             label: 'Settings',
             onPressed: () => unawaited(scheduler.openNotificationSettings()),
@@ -645,6 +661,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                         onTap: widget.readOnly || isChecklist
                             ? null
                             : _focusBody,
+                        // A convenience for a finger below the text. TalkBack
+                        // reaches the body field itself, so the page is not
+                        // offered as an unnamed button.
+                        excludeFromSemantics: true,
                         child: CustomScrollView(
                           slivers: [
                             if ((note?.attachments.isNotEmpty ?? false) ||
@@ -674,9 +694,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                             SliverPadding(
                               padding: const EdgeInsets.fromLTRB(
                                 Gap.xl,
-                                Gap.lg,
+                                Gap.sm,
                                 Gap.xl,
-                                Gap.md,
+                                0,
                               ),
                               sliver: SliverToBoxAdapter(
                                 child: TextField(
@@ -689,10 +709,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                   style: AppText.noteTitleEditor.copyWith(
                                     color: colors.ink,
                                   ),
+                                  // Part of the space around the title sits
+                                  // inside the field, so a tap there lands
+                                  // on it and it meets the 48dp target.
                                   decoration: _plainField(
                                     'Title',
                                     AppText.noteTitleEditor,
                                     colors,
+                                    padding: const EdgeInsets.only(
+                                      top: Gap.sm,
+                                      bottom: Gap.md,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -770,7 +797,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                   Gap.xl,
                                   note != null && note.reminderAt != null
                                       ? 0
-                                      : Gap.xl,
+                                      : Gap.md,
                                   Gap.xl,
                                   0,
                                 ),
@@ -791,13 +818,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                                         onTap: widget.readOnly
                                             ? null
                                             : () => unawaited(_openLabels()),
-                                        child: Wrap(
-                                          spacing: Gap.xs,
-                                          runSpacing: Gap.xs,
-                                          children: [
-                                            for (final label in labels)
-                                              _LabelChip(name: label.name),
-                                          ],
+                                        // A touch target tall, with the
+                                        // chips centred in it.
+                                        child: Container(
+                                          constraints: const BoxConstraints(
+                                            minHeight: Layout.minTouch,
+                                          ),
+                                          alignment: Alignment.centerLeft,
+                                          child: Wrap(
+                                            spacing: Gap.xs,
+                                            runSpacing: Gap.xs,
+                                            children: [
+                                              for (final label in labels)
+                                                _LabelChip(name: label.name),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -840,11 +875,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   }
 }
 
-InputDecoration _plainField(String hint, TextStyle style, AppColors colors) {
+InputDecoration _plainField(
+  String hint,
+  TextStyle style,
+  AppColors colors, {
+  EdgeInsets padding = EdgeInsets.zero,
+}) {
   return InputDecoration(
     border: InputBorder.none,
     isDense: true,
-    contentPadding: EdgeInsets.zero,
+    contentPadding: padding,
     hintText: hint,
     hintStyle: style.copyWith(color: colors.inkMuted),
   );

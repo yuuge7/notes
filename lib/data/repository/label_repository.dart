@@ -5,6 +5,7 @@ import 'package:notes/data/db/database.dart';
 import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/domain/model/label.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/note_page.dart';
 
 /// How a rename went.
 enum RenameResult {
@@ -41,6 +42,10 @@ class LabelRepository {
   /// Notes on the grid, not archived or trashed, that wear [labelId].
   Stream<List<Note>> watchNotes(String labelId) =>
       _dao.watchLabelShelf(labelId);
+
+  /// The first [limit] of those notes, and how many there are.
+  Stream<NotePage> watchNotesPage(String labelId, int limit) =>
+      _dao.watchLabelShelfPage(labelId, limit);
 
   /// How many of [noteIds] wear each label, by label id.
   Stream<Map<String, int>> watchUsage(List<String> noteIds) =>

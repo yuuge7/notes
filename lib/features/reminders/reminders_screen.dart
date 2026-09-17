@@ -18,6 +18,7 @@ import 'package:notes/features/notes/widgets/app_drawer.dart';
 import 'package:notes/features/notes/widgets/day_header.dart';
 import 'package:notes/features/notes/widgets/note_tile.dart';
 import 'package:notes/features/notes/widgets/notes_states.dart';
+import 'package:notes/features/reminders/background_hint.dart';
 import 'package:notes/features/reminders/reminder_providers.dart';
 import 'package:notes/features/shelf/shelf_screen.dart';
 
@@ -72,18 +73,36 @@ class RemindersScreen extends ConsumerWidget {
     );
     final count = groups.fold(0, (sum, group) => sum + group.$2.length);
 
+    // The notices scroll with the page, so at large text sizes they cannot
+    // crowd out what they are about.
+    final notices = [
+      if (access != null) _AccessNotice(access: access),
+      // One notice at a time: the phone's own limits on background apps
+      // matter once Android itself lets reminders ring.
+      if (access != null && access.notifications && access.exactAlarms)
+        const BackgroundHint(),
+    ];
+
     final Widget content;
     if (notesAsync.isLoading && !notesAsync.hasValue) {
-      content = NotesSkeleton(columns: columns);
+      content = _UnderNotices(
+        notices: notices,
+        scrolls: true,
+        child: NotesSkeleton(columns: columns),
+      );
     } else if (notesAsync.hasError) {
-      content = NotesError(
-        detail: '${notesAsync.error}',
-        onRetry: () => ref.invalidate(reminderNotesProvider),
+      content = _UnderNotices(
+        notices: notices,
+        child: NotesError(
+          detail: '${notesAsync.error}',
+          onRetry: () => ref.invalidate(reminderNotesProvider),
+        ),
       );
     } else if (groups.isEmpty) {
-      content = const _RemindersEmpty();
+      content = _UnderNotices(notices: notices, child: const _RemindersEmpty());
     } else {
       content = _ReminderSections(
+        notices: notices,
         groups: groups,
         columns: columns,
         bottomPadding: Gap.xxl + MediaQuery.paddingOf(context).bottom,
@@ -104,7 +123,6 @@ class RemindersScreen extends ConsumerWidget {
               title: 'Reminders',
               count: notesAsync.hasValue ? count : null,
             ),
-            if (access != null) _AccessNotice(access: access),
             Expanded(child: content),
           ],
         ),
@@ -113,13 +131,46 @@ class RemindersScreen extends ConsumerWidget {
   }
 }
 
+/// A loading, empty, or error state that fills the page below the notices.
+class _UnderNotices extends StatelessWidget {
+  const _UnderNotices({
+    required this.notices,
+    required this.child,
+    this.scrolls = false,
+  });
+
+  final List<Widget> notices;
+  final Widget child;
+
+  /// Whether [child] is itself a scroll view, which takes the space left
+  /// rather than measuring its own height.
+  final bool scrolls;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: notices,
+          ),
+        ),
+        SliverFillRemaining(hasScrollBody: scrolls, child: child),
+      ],
+    );
+  }
+}
+
 class _ReminderSections extends StatelessWidget {
   const _ReminderSections({
+    required this.notices,
     required this.groups,
     required this.columns,
     required this.bottomPadding,
   });
 
+  final List<Widget> notices;
   final List<(String, List<Note>)> groups;
   final int columns;
   final double bottomPadding;
@@ -131,6 +182,12 @@ class _ReminderSections extends StatelessWidget {
         const Positioned.fill(child: TimeGutter()),
         CustomScrollView(
           slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: notices,
+              ),
+            ),
             SliverList.builder(
               itemCount: groups.length,
               itemBuilder: (context, index) {

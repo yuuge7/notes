@@ -489,6 +489,38 @@ void main() {
     expect(preview.bundle.imageCount, 3);
   });
 
+  group('progress', () {
+    test('an export counts its images as they go in', () async {
+      await fill(a);
+      final seen = <(int, int)>[];
+
+      await a.backup.export(
+        onProgress: (done, total) => seen.add((done, total)),
+      );
+
+      expect(seen.first, (0, 3));
+      expect(seen.last, (3, 3));
+      for (var i = 1; i < seen.length; i++) {
+        expect(seen[i].$1, greaterThanOrEqualTo(seen[i - 1].$1));
+      }
+    });
+
+    test('an import counts its images as they come out', () async {
+      await fill(a);
+      final preview = await b.backup.preview(await exportFrom(a));
+      final seen = <(int, int)>[];
+
+      await b.backup.import(
+        preview,
+        ImportMode.replace,
+        onProgress: (done, total) => seen.add((done, total)),
+      );
+
+      expect(seen.first, (0, 3));
+      expect(seen.last, (3, 3));
+    });
+  });
+
   group('preview', () {
     test('writes nothing', () async {
       await fill(a);

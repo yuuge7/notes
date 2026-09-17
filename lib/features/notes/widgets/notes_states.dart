@@ -123,20 +123,72 @@ class TrashEmpty extends StatelessWidget {
 
 /// The read failed. Say what happened and offer the one useful move.
 class NotesError extends StatelessWidget {
-  const NotesError({required this.onRetry, this.detail, super.key});
+  const NotesError({
+    required this.onRetry,
+    this.detail,
+    this.eyebrow = 'NOTES DID NOT LOAD',
+    super.key,
+  });
 
   final VoidCallback onRetry;
   final String? detail;
 
+  /// What did not load, such as the labels.
+  final String eyebrow;
+
   @override
   Widget build(BuildContext context) {
     return StateMessage(
-      eyebrow: 'NOTES DID NOT LOAD',
+      eyebrow: eyebrow,
       headline: 'The notebook stayed shut',
       body: detail == null
           ? 'The database refused to open. Your notes are still on the device.'
           : 'The database refused to open: $detail',
       action: FilledButton(onPressed: onRetry, child: const Text('Try again')),
+    );
+  }
+}
+
+/// Placeholder rows while a list of labels loads: the shape of what is
+/// coming, as the cards are on the grid. Still, since a list this short loads
+/// in a moment.
+class RowsSkeleton extends StatelessWidget {
+  const RowsSkeleton({this.rows = 4, super.key});
+
+  final int rows;
+
+  static const _widths = [0.62, 0.44, 0.7, 0.5];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colors;
+    return ExcludeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Gap.xl,
+          vertical: Gap.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < rows; i++)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: Gap.md),
+                child: FractionallySizedBox(
+                  widthFactor: _widths[i % _widths.length],
+                  child: Container(
+                    height: Gap.lg,
+                    decoration: BoxDecoration(
+                      color: colors.card,
+                      borderRadius: BorderRadius.circular(Radii.small),
+                      border: Border.all(color: colors.hairline),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

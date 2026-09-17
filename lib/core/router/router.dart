@@ -61,15 +61,27 @@ GoRouter buildRouter({String initialLocation = '/'}) {
       ),
       GoRoute(
         path: '/labels',
-        builder: (context, state) => const LabelsScreen(),
+        pageBuilder: (context, state) =>
+            _pushedPage(state, const LabelsScreen()),
       ),
       GoRoute(
         path: '/settings',
-        builder: (context, state) => const SettingsScreen(),
+        pageBuilder: (context, state) =>
+            _pushedPage(state, const SettingsScreen()),
       ),
     ],
   );
 }
+
+/// A page pushed over another: the theme's page transition, with Android's
+/// predictive back.
+///
+/// Made here rather than left to `builder:`. go_router picks the page for a
+/// `builder:` route by looking for the `MaterialApp` of `material_ui`, which
+/// is not the one this app is built with, and falls back to a page with no
+/// transition at all.
+MaterialPage<void> _pushedPage(GoRouterState state, Widget child) =>
+    MaterialPage<void>(key: state.pageKey, child: child);
 
 /// Shelves swap with a short fade: they are siblings, so nothing should slide
 /// in as if it were deeper. Search fades in the same way, as a lens over the

@@ -1,10 +1,15 @@
 package com.ionel.notes
 
 import android.app.Activity
+import android.app.UiModeManager
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -12,8 +17,8 @@ import java.io.File
 import java.util.concurrent.Executors
 
 /**
- * Hosts Flutter, and the system pickers an export is saved with and an import
- * is opened from.
+ * Hosts Flutter, the system pickers an export is saved with and an import is
+ * opened from, and the few settings of the phone the app reaches into.
  *
  * Both go through the Storage Access Framework, so the app holds no storage
  * permission: Android grants access to the one file the person picks. Files
@@ -57,6 +62,60 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SYSTEM_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setNightMode" -> {
+                        setNightMode(call.argument<String>("mode"))
+                        result.success(null)
+                    }
+                    "manufacturer" -> result.success(Build.MANUFACTURER.orEmpty())
+                    "openBackgroundSettings" -> result.success(openBackgroundSettings())
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /**
+     * Holds the theme chosen in the app as the app's own night mode. Android 12
+     * and later draw the launch screen before any Dart runs, from this mode, so
+     * a dark choice starts dark even on a light phone. Earlier versions have no
+     * such setting, and their launch screen follows the phone.
+     */
+    private fun setNightMode(mode: String?) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val nightMode = when (mode) {
+            "light" -> UiModeManager.MODE_NIGHT_NO
+            "dark" -> UiModeManager.MODE_NIGHT_YES
+            else -> UiModeManager.MODE_NIGHT_AUTO
+        }
+        getSystemService(UiModeManager::class.java)?.setApplicationNightMode(nightMode)
+    }
+
+    /**
+     * Opens the page where this phone's maker lets an app run in the
+     * background, so reminders ring with the app closed. Makers move these
+     * pages between versions, so each known place is tried in turn, and the
+     * app's own settings page is the last resort. Returns whether any opened.
+     */
+    private fun openBackgroundSettings(): Boolean {
+        val candidates = OEM_BACKGROUND_PAGES.map { (pkg, cls) ->
+            Intent().setComponent(ComponentName(pkg, cls))
+        } + Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null),
+        )
+        for (intent in candidates) {
+            try {
+                startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return true
+            } catch (e: ActivityNotFoundException) {
+                // Not on this phone; try the next.
+            } catch (e: SecurityException) {
+                // Present but closed to other apps; try the next.
+            }
+        }
+        return false
     }
 
     /** Opens a picker, and answers the call at once if none can be opened. */
@@ -114,6 +173,20 @@ class MainActivity : FlutterActivity() {
 
     private companion object {
         const val CHANNEL = "com.ionel.notes/documents"
+        const val SYSTEM_CHANNEL = "com.ionel.notes/system"
+
+        /** Where makers known to stop background apps keep the switch that lets one run. */
+        val OEM_BACKGROUND_PAGES = listOf(
+            "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            "com.samsung.android.lool" to "com.samsung.android.sm.battery.ui.BatteryActivity",
+            "com.samsung.android.lool" to "com.samsung.android.sm.ui.battery.BatteryActivity",
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+            "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+            "com.oplus.safecenter" to "com.oplus.safecenter.permission.startup.StartupAppListActivity",
+            "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+            "com.iqoo.secure" to "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager",
+        )
 
         // Clear of the codes the image picker plugin uses for its own results.
         const val SAVE = 41731

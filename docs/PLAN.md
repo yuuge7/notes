@@ -140,7 +140,9 @@ Color codes a note without flooding it. Chrome is nearly invisible; type and pig
 
 Light — ground `#F4F5F3`, card `#FFFFFF`, ink `#16181A`, ink-muted `#5C6360`, hairline `#E0E2DE`
 Dark — ground `#0F1113`, card `#191C1E`, ink `#E9EDEA`, ink-muted `#9AA3A0`, hairline `#262A2C`
-Accent (actions, focus, selection) — verdigris `#2E7B78` light / `#5FB3AE` dark
+Accent (actions, focus, selection) — verdigris `#28706D` light / `#5FB3AE` dark. The light accent is a step
+deeper than the verdigris spine so accent text keeps 4.5:1 on every tint and on the selected-row wash
+(milestone 7).
 Danger — `#B3402C`
 
 Pigments (8; `graphite` means none). Each defines a spine color plus a card tint per theme:
@@ -182,9 +184,11 @@ surface color alone. Sheets 24px top radius. Chips fully rounded. Spacing scale 
 
 ### Motion
 
-Container transform 220ms `easeOutCubic` (card ↔ editor). Checkbox strike-through 140ms. Pin and unpin
-reflow with a spring. Undo bars slide rather than fade. All of it collapses to an 80ms cross-fade when
-`MediaQuery.disableAnimations` is set.
+Container transform 220ms `easeOutCubic` (card ↔ editor). Pushed pages (settings, labels, a note opened from a
+notification) use Android's transition with predictive back, held to 250ms. Checkbox strike-through 140ms. Pin
+and unpin reflow with a spring. Undo bars slide rather than fade. All of it collapses to an 80ms cross-fade
+when `MediaQuery.disableAnimations` is set. The skeleton's slow pulse is an indicator, not a transition, and
+holds still when animations are off.
 
 ### Required states on every list surface
 
@@ -290,8 +294,12 @@ media/thumbs/<attachmentId>.jpg   (added in milestone 6: an import need not rema
 - Notification channel `reminders` at HIGH importance, created on first run.
 - `android:allowBackup="false"` — the export bundle is the backup story, and auto-backup would resurrect
   stale databases.
-- Adaptive icon plus a monochrome layer for themed icons; splash via `flutter_native_splash`.
-- Release: ProGuard rules for Drift and sqlite3, app bundle output, signing from `key.properties`.
+- Adaptive icon plus a monochrome layer for themed icons. The launch screen is written by hand rather than
+  with `flutter_native_splash`: the ground colour for each theme, and on Android 12+ the icon on it, with the
+  app's own theme choice handed to Android through `UiModeManager.setApplicationNightMode`.
+- `dataExtractionRules` keep the database, files, and preferences out of cloud backup and device transfer.
+- Release: R8 keep rules for the notifications plugin's Gson storage, `res/raw/keep.xml` for the notification
+  icon, app bundle output, signing from `key.properties`.
 
 ---
 
@@ -767,3 +775,89 @@ Carried forward:
 - **Import progress** shows a running line, not how far along it is. Large imports have been timed on the
   desktop only.
 - **Process death with a picker open** loses that call; the export or import has to be started again.
+
+### Milestone 7 — done (2026-09-17)
+
+Polish and the finish gate, with milestone 6's open items closed. Covered by 470 tests, the finish gate
+among them, and checked on the Android 17 emulator on a release build.
+
+- **The finish gate as a test.** `finish_gate_test.dart` opens 17 surfaces (the grid, drawer, selection mode, a
+  text note, a list, the colour and reminder sheets, the label picker, a label page, archive, trash, a note in
+  the trash, reminders, search, labels, settings, the export sheet) on a 360dp phone in both themes, and checks
+  Android's 48dp and labelled tap target guidelines, text contrast, and 200% text with any overflow failing the
+  test. Seeded with an archived note, a trashed one, and a note with a long title and a 5,000-character body,
+  which also opens whole in the editor. 104 checks, all passing.
+  - Beside it, `theme_contract_test.dart`: every text colour against every surface it is drawn on, including
+    all tints and the selected-row wash, at 4.5:1; every motion token and the page transition at 300ms or less;
+    and a scan of `lib/` for colours and font sizes outside `lib/core/theme/`, which found five font sizes, now
+    type tokens (`noteItem`, `displaySmall`, `metaOverlay`, `uiLargeStrong`).
+- **Fixed by the gate.**
+  - Contrast: the light accent read 4.3:1 on pigment tints, 4.0:1 on the selection wash, and the snack bar's
+    Undo 3.6:1. The accent is now `#28706D`, and Undo on the dark bar takes the dark theme's accent.
+  - Touch targets: checklist item fields were 26dp tall and the editor title 28dp, with their padding outside
+    the field; the padding moved inside. Search, new label, and label rename fields were 46dp; the label chips
+    under a note 22dp. A full-page tap area in the editor showed up as an unnamed button and is now hidden
+    from TalkBack, which reaches the body field itself. Checklist checkboxes carry the item's text.
+  - 200% text: the drawer's Labels heading, the trash header with Empty trash, and every shelf header now wrap
+    their action below the title; reminders' notices scroll with the page instead of pushing it off screen;
+    the add-item and checked-items rows grow with their text.
+- **Loading and error states** on every list surface: search shows skeleton cards while it reads; the labels
+  page and the label picker have a skeleton and an error with retry.
+- **Motion.** Pushed pages use Android's transition with predictive back at 250ms (Flutter's default is
+  450ms), a fast fade with animations off, and the theme change stops cross-fading then too.
+- **Paging.** The grid, label pages, archive, and trash read 100 notes and 100 more as the end nears
+  (`NotePage`, `LoadMore`). Headers count the whole shelf. A drag to the end of what is loaded sorts before the
+  first note not yet loaded.
+- **Milestone 6's open items.**
+  - Launch screen: the ground colour in each theme instead of Flutter's white, with the icon on Android 12+,
+    and the app's own theme choice handed to Android, so a dark choice on a light phone starts dark. On the
+    emulator, 13 frames of launch screen on `#0F1113` went straight to the dark first frame.
+  - `allowBackup="false"` and `dataExtractionRules`; `dumpsys` no longer reports `ALLOW_BACKUP`.
+  - Import and export show images done of all of them on a determinate bar, then a running line while the
+    notes are written in one transaction.
+  - Cold start with the theme hold, release build, 14 runs after warm-up: median 1,880ms (1,628–5,362). A
+    build without the hold: median 1,724ms over 7 runs (1,638–1,947). The hold costs about 150ms on this
+    emulator, most of it the settings read the first frame would otherwise do right after.
+- **Icon.** An adaptive icon, a note on verdigris with a vermilion spine, plus a monochrome layer for themed
+  icons and regenerated legacy PNGs.
+- **Reminders on phones that stop apps.** Xiaomi, Samsung, Huawei, Honor, OPPO, realme, OnePlus, vivo, and
+  iQOO get a one-time hint, once Android itself allows reminders, that opens the maker's background or
+  autostart page, falling back to the app's details. Dismissed or used, it stays away.
+- **Process death.** The editor saves as soon as the app turns inactive rather than waiting out the 400ms
+  debounce. On the emulator, text typed, then Home, then a force-stop 50ms later was there on the next start;
+  before the change, 150ms lost it.
+- **Tests.** Goldens for the note card in all eight pigments and both themes (`--tags golden`, recorded on
+  Windows, skipped in CI). `integration_test/reminder_rings_test.dart`, create → remind → ring, passed on the
+  emulator in 38s. The rest of §10's test list was already covered.
+- **Release build on the emulator.** Installed signed with the release key (the debug install was gone, see
+  below), then the milestone 6 export imported with Replace; `flutter build appbundle --release` builds too. A reminder set in the app rang at 15:09:00 with
+  the process killed, and Done from the shade marked it done from the background isolate, so R8 keeps what the
+  notifications plugin and Drift need.
+
+Decisions and findings:
+- **go_router 18 gave pushed pages no transition.** It decides a `builder:` route's page by looking for
+  `material_ui`'s `MaterialApp`, a different class from Flutter's, so settings and labels opened as
+  `NoTransitionPage`s with no predictive back. Found when a held back swipe on the emulator moved nothing.
+  They are built as `MaterialPage`s now, covered by a test that drives the back gesture channel. On the
+  emulator, the same held swipe now draws settings smaller with the grid behind it.
+- **Undo bars never left.** Flutter 3.47 makes a snack bar with an action persist by default, so every Undo sat
+  over the bottom of the pages opened after it, covering Restore and Delete forever on a trashed note. It now
+  leaves after five seconds, and stays only while TalkBack is on.
+- **The integration test wipes the device.** `flutter test -d` uninstalls the app when it finishes. Its first
+  run took the emulator's notes, restored from the milestone 6 export in Downloads. The test now also shows
+  the app only its own notification ids, since the first reminder pass cancels anything its database does not
+  know, and leaves the phone's theme alone.
+- **Skeleton pulse** (1,100ms) is an indicator, not a transition, and stands still when animations are off.
+- **Formatting.** Much of the tree predates the formatter's style. Changes are formatted where they were
+  made, not whole files.
+- **APK size.** The release APK is 64MB: three ABIs with native libraries stored uncompressed, as the Android
+  Gradle plugin now defaults. Not changed here.
+- Stale Gradle merge state from before the launch screen change broke the first release build; clearing
+  `build/app/intermediates` for release fixed it.
+
+Carried forward:
+- **The maker hint** cannot show on the Google emulator; its channel paths are untested on real Xiaomi or
+  Samsung phones.
+- **Themed icon** not yet seen with themed icons switched on.
+- **Process death with a picker open** loses that call, as in milestone 6.
+- Timings are from one emulator on this desktop.

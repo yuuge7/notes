@@ -54,10 +54,7 @@ class AppDrawer extends ConsumerWidget {
                 children: [
                   Text(
                     'Notes',
-                    style: AppText.display.copyWith(
-                      color: colors.ink,
-                      fontSize: 22,
-                    ),
+                    style: AppText.displaySmall.copyWith(color: colors.ink),
                   ),
                   const SizedBox(height: Gap.xs),
                   // True and worth knowing: nothing here leaves the phone.
@@ -87,16 +84,17 @@ class AppDrawer extends ConsumerWidget {
                 Gap.sm,
                 Gap.xs,
               ),
-              child: Row(
+              // At large text sizes the button drops below the heading.
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Semantics(
-                      header: true,
-                      child: Text(
-                        'LABELS',
-                        style: AppText.metaStrong.copyWith(
-                          color: colors.inkMuted,
-                        ),
+                  Semantics(
+                    header: true,
+                    child: Text(
+                      'LABELS',
+                      style: AppText.metaStrong.copyWith(
+                        color: colors.inkMuted,
                       ),
                     ),
                   ),

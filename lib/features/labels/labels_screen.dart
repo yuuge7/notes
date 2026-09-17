@@ -13,6 +13,7 @@ import 'package:notes/data/providers.dart';
 import 'package:notes/data/repository/label_repository.dart';
 import 'package:notes/domain/model/label.dart';
 import 'package:notes/features/labels/label_providers.dart';
+import 'package:notes/features/notes/widgets/notes_states.dart';
 
 /// Make, rename, reorder, and delete labels. The order set here is the order
 /// of the drawer and of every list of labels.
@@ -137,12 +138,16 @@ class _LabelsScreenState extends ConsumerState<LabelsScreen> {
                             LabelRepository.maxLength,
                           ),
                         ],
+                        textAlignVertical: TextAlignVertical.center,
                         style: AppText.uiLarge.copyWith(color: colors.ink),
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: Gap.md,
+                          ),
+                          constraints: const BoxConstraints(
+                            minHeight: Layout.minTouch,
                           ),
                           hintText: 'New label',
                           hintStyle: AppText.uiLarge.copyWith(
@@ -166,7 +171,18 @@ class _LabelsScreenState extends ConsumerState<LabelsScreen> {
               ),
             ),
             const SliverToBoxAdapter(child: Divider()),
-            if (labelsAsync.hasValue && labels.isEmpty)
+            if (labelsAsync.hasError && !labelsAsync.hasValue)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: NotesError(
+                  eyebrow: 'LABELS DID NOT LOAD',
+                  detail: '${labelsAsync.error}',
+                  onRetry: () => ref.invalidate(labelsProvider),
+                ),
+              )
+            else if (!labelsAsync.hasValue)
+              const SliverToBoxAdapter(child: RowsSkeleton())
+            else if (labels.isEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(Gap.xl),
@@ -346,10 +362,12 @@ class _LabelRowState extends ConsumerState<_LabelRow> {
                   LengthLimitingTextInputFormatter(LabelRepository.maxLength),
                 ],
                 onSubmitted: (_) => _focus.unfocus(),
+                textAlignVertical: TextAlignVertical.center,
                 style: AppText.uiLarge.copyWith(color: colors.ink),
                 decoration: InputDecoration(
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: Gap.md),
+                  constraints: const BoxConstraints(minHeight: Layout.minTouch),
                   enabledBorder: InputBorder.none,
                   focusedBorder: UnderlineInputBorder(
                     borderSide: BorderSide(color: colors.accent),

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification icons are named in Dart, so resource shrinking cannot see
+     them in use. Without this a release build drops them, and reminders fail
+     to show. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_reminder,@mipmap/ic_launcher" />

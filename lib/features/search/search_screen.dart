@@ -95,7 +95,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           onRetry: () => ref.invalidate(searchResultsProvider(_query)),
         );
       } else if (shown == null) {
-        body = const SizedBox.shrink();
+        body = NotesSkeleton(columns: columns);
       } else if (shown.notes.isEmpty) {
         body = _NoMatches(
           query: _query,
@@ -135,12 +135,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         _remember();
                       },
                       textInputAction: TextInputAction.search,
+                      textAlignVertical: TextAlignVertical.center,
                       style: AppText.uiLarge.copyWith(color: colors.ink),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: Gap.md,
+                        ),
+                        constraints: const BoxConstraints(
+                          minHeight: Layout.minTouch,
                         ),
                         hintText: 'Search notes',
                         hintStyle: AppText.uiLarge.copyWith(

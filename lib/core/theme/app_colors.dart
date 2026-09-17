@@ -86,10 +86,12 @@ class AppColors extends ThemeExtension<AppColors> {
     ink: Color(0xFF16181A),
     inkMuted: Color(0xFF5C6360),
     hairline: Color(0xFFE0E2DE),
-    accent: Color(0xFF2E7B78),
+    // A shade deeper than the verdigris pigment, so accent text holds 4.5:1
+    // on every note tint and on the selected-row wash.
+    accent: Color(0xFF28706D),
     onAccent: Color(0xFFFFFFFF),
-    accentWash: Color(0x1A2E7B78),
-    mark: Color(0x402E7B78),
+    accentWash: Color(0x1A28706D),
+    mark: Color(0x4028706D),
     danger: Color(0xFFB3402C),
     viewer: Color(0xFF0B0C0D),
     onViewer: Color(0xFFF1F3F2),

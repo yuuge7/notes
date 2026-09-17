@@ -40,12 +40,18 @@ abstract final class Layout {
 
   static const double cardGap = Gap.md;
   static const double composeBarHeight = 52;
+
+  /// The smallest thing a finger is asked to hit, text fields included.
+  static const double minTouch = 48;
 }
 
 /// Motion. Nothing runs longer than 300ms, and everything collapses to a fast
 /// cross-fade when the platform asks for reduced motion.
 abstract final class Motion {
   static const Duration container = Duration(milliseconds: 220);
+
+  /// A page pushed over another, such as settings or the labels page.
+  static const Duration page = Duration(milliseconds: 250);
   static const Duration standard = Duration(milliseconds: 180);
   static const Duration quick = Duration(milliseconds: 140);
   static const Duration reduced = Duration(milliseconds: 80);

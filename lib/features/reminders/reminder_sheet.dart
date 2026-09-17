@@ -7,6 +7,7 @@ import 'package:notes/core/theme/typography.dart';
 import 'package:notes/core/util/reminder_time.dart';
 import 'package:notes/domain/model/reminder_rule.dart';
 import 'package:notes/domain/service/reminder_scheduler.dart';
+import 'package:notes/features/reminders/background_hint.dart';
 import 'package:notes/features/reminders/reminder_format.dart';
 
 /// Opens the reminder sheet for a note whose reminder is [at], or none.
@@ -309,7 +310,9 @@ class _ReminderSheetState extends State<ReminderSheet> {
                     ),
                   ],
                 ),
-              ),
+              )
+            else
+              const BackgroundHint(framed: false),
           ],
         ),
       ),

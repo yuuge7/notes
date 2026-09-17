@@ -53,8 +53,10 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      # Goldens are recorded on Windows, where the project is developed, and
+      # text renders a pixel differently on Linux; they are checked locally.
       - name: Test
-        run: flutter test --exclude-tags perf
+        run: flutter test --exclude-tags perf,golden
 
       - name: Test timings
         run: flutter test --tags perf

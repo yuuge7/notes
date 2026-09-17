@@ -4,6 +4,7 @@ import 'package:notes/core/util/sort_key.dart';
 import 'package:notes/data/db/database.dart';
 import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/note_page.dart';
 import 'package:notes/domain/model/note_type.dart';
 import 'package:notes/domain/model/pigment.dart';
 
@@ -17,6 +18,10 @@ class NoteRepository {
   final NoteDao _dao;
 
   Stream<List<Note>> watch(Shelf shelf) => _dao.watchShelf(shelf);
+
+  /// The first [limit] notes of [shelf], and how many it holds.
+  Stream<NotePage> watchPage(Shelf shelf, int limit) =>
+      _dao.watchShelfPage(shelf, limit);
 
   Stream<Note?> watchNote(String id) => _dao.watchNote(id);
 

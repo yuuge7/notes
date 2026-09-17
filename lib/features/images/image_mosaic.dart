@@ -123,10 +123,7 @@ class _Thumb extends StatelessWidget {
               child: Center(
                 child: Text(
                   '+$more',
-                  style: AppText.metaStrong.copyWith(
-                    color: colors.onViewer,
-                    fontSize: 13,
-                  ),
+                  style: AppText.metaOverlay.copyWith(color: colors.onViewer),
                 ),
               ),
             ),

@@ -335,8 +335,7 @@ class _ChecklistRow extends StatelessWidget {
               terms: highlight,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: AppText.noteBody.copyWith(
-                fontSize: 14,
+              style: AppText.noteItem.copyWith(
                 color: item.checked ? colors.inkMuted : colors.ink,
                 decoration: item.checked ? TextDecoration.lineThrough : null,
                 decorationColor: colors.inkMuted,

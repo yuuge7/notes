@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- From lib/core/theme/app_colors.dart. The window shows these before
+         Flutter draws, so the launch matches the app's first frame. -->
+    <color name="ground">#F4F5F3</color>
+    <!-- The icon: a page of paper on verdigris, with a vermilion spine. -->
+    <color name="icon_background">#2E7B78</color>
+    <color name="icon_paper">#F4F5F3</color>
+    <color name="icon_ink">#16181A</color>
+    <color name="icon_ink_muted">#5C6360</color>
+    <color name="icon_spine">#C9452E</color>
+</resources>

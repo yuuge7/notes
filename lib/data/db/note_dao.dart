@@ -9,6 +9,7 @@ import 'package:notes/domain/model/attachment.dart';
 import 'package:notes/domain/model/checklist_item.dart';
 import 'package:notes/domain/model/label.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/note_page.dart';
 
 part 'note_dao.g.dart';
 
@@ -76,15 +77,47 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
     return controller.stream;
   }
 
-  Future<List<Note>> loadShelf(Shelf shelf) async {
-    final query = select(notes)
-      ..where(
-        (t) => switch (shelf) {
-          Shelf.active => t.deleted.equals(false) & t.archived.equals(false),
-          Shelf.archived => t.deleted.equals(false) & t.archived.equals(true),
-          Shelf.trash => t.deleted.equals(true),
-        },
-      );
+  Future<List<Note>> loadShelf(Shelf shelf) async =>
+      hydrate(await _shelfQuery(shelf).get());
+
+  /// The first [limit] notes of [shelf], reloaded after every change.
+  Stream<NotePage> watchShelfPage(Shelf shelf, int limit) =>
+      reloadOnChange(() => loadShelfPage(shelf, limit));
+
+  Future<NotePage> loadShelfPage(Shelf shelf, int limit) async {
+    final count = notes.id.count();
+    final total =
+        await (selectOnly(notes)
+              ..addColumns([count])
+              ..where(_onShelf(notes, shelf)))
+            .getSingle();
+    return _page(_shelfQuery(shelf), limit, total.read(count) ?? 0);
+  }
+
+  /// Loads one row past [limit], to know where the next page starts.
+  Future<NotePage> _page(
+    SimpleSelectStatement<$NotesTable, NoteRow> query,
+    int limit,
+    int total,
+  ) async {
+    final rows = await (query..limit(limit + 1)).get();
+    final next = rows.length > limit ? rows[limit] : null;
+    return NotePage(
+      notes: await hydrate(rows.take(limit).toList()),
+      total: total,
+      after: next == null ? null : (sortKey: next.sortKey, pinned: next.pinned),
+    );
+  }
+
+  static Expression<bool> _onShelf($NotesTable t, Shelf shelf) =>
+      switch (shelf) {
+        Shelf.active => t.deleted.equals(false) & t.archived.equals(false),
+        Shelf.archived => t.deleted.equals(false) & t.archived.equals(true),
+        Shelf.trash => t.deleted.equals(true),
+      };
+
+  SimpleSelectStatement<$NotesTable, NoteRow> _shelfQuery(Shelf shelf) {
+    final query = select(notes)..where((t) => _onShelf(t, shelf));
 
     // Pinned notes float; everything else follows the manual order, which
     // starts out as newest-captured-first.
@@ -98,8 +131,7 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
         (t) => OrderingTerm(expression: t.sortKey),
       ]);
     }
-
-    return hydrate(await query.get());
+    return query;
   }
 
   Future<Note?> loadNote(String id) async {
@@ -463,25 +495,43 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
   Stream<List<Note>> watchLabelShelf(String labelId) =>
       reloadOnChange(() => loadLabelShelf(labelId));
 
-  Future<List<Note>> loadLabelShelf(String labelId) async {
+  Future<List<Note>> loadLabelShelf(String labelId) async =>
+      hydrate(await _labelShelfQuery(labelId).get());
+
+  /// The first [limit] notes on the grid wearing [labelId], reloaded after
+  /// every change.
+  Stream<NotePage> watchLabelShelfPage(String labelId, int limit) =>
+      reloadOnChange(() => loadLabelShelfPage(labelId, limit));
+
+  Future<NotePage> loadLabelShelfPage(String labelId, int limit) async {
+    final count = notes.id.count();
+    final total =
+        await (selectOnly(notes)
+              ..addColumns([count])
+              ..where(_wearing(notes, labelId)))
+            .getSingle();
+    return _page(_labelShelfQuery(labelId), limit, total.read(count) ?? 0);
+  }
+
+  Expression<bool> _wearing($NotesTable t, String labelId) {
     final wearing = selectOnly(noteLabels)
       ..addColumns([noteLabels.noteId])
       ..where(
         noteLabels.labelId.equals(labelId) & noteLabels.deleted.equals(false),
       );
-    final query = select(notes)
-      ..where(
-        (t) =>
-            t.deleted.equals(false) &
-            t.archived.equals(false) &
-            t.id.isInQuery(wearing),
-      )
-      ..orderBy([
-        (t) => OrderingTerm(expression: t.pinned, mode: OrderingMode.desc),
-        (t) => OrderingTerm(expression: t.sortKey),
-      ]);
-    return hydrate(await query.get());
+    return t.deleted.equals(false) &
+        t.archived.equals(false) &
+        t.id.isInQuery(wearing);
   }
+
+  SimpleSelectStatement<$NotesTable, NoteRow> _labelShelfQuery(
+    String labelId,
+  ) => select(notes)
+    ..where((t) => _wearing(t, labelId))
+    ..orderBy([
+      (t) => OrderingTerm(expression: t.pinned, mode: OrderingMode.desc),
+      (t) => OrderingTerm(expression: t.sortKey),
+    ]);
 
   /// How many of [noteIds] wear each label, by label id.
   Stream<Map<String, int>> watchLabelUsage(List<String> noteIds) =>

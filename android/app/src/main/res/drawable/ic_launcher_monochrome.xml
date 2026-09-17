@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The icon in one colour, for themed icons: the page with its writing cut
+     out, and the spine standing apart from it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M43,30 H67 A5,5 0 0 1 72,35 V73 A5,5 0 0 1 67,78 H43 Z M48,38 H63 A2,2 0 0 1 63,42 H48 A2,2 0 0 1 48,38 Z M47.5,50 H65.5 A1.5,1.5 0 0 1 65.5,53 H47.5 A1.5,1.5 0 0 1 47.5,50 Z M47.5,57 H60.5 A1.5,1.5 0 0 1 60.5,60 H47.5 A1.5,1.5 0 0 1 47.5,57 Z M47.5,64 H63.5 A1.5,1.5 0 0 1 63.5,67 H47.5 A1.5,1.5 0 0 1 47.5,64 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M36,35 A5,5 0 0 1 41,30 V78 A5,5 0 0 1 36,73 Z" />
+</vector>

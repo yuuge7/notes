@@ -8,6 +8,9 @@ import 'package:notes/data/media/media_store.dart';
 import 'package:notes/domain/model/attachment.dart';
 import 'package:notes/domain/model/note.dart';
 
+/// Told how far a long piece of work has got: [done] of [total] images.
+typedef Progress = void Function(int done, int total);
+
 /// Writes and reads the export zip.
 ///
 /// Every method does its work on an isolate of its own: a zip of a few hundred
@@ -23,7 +26,11 @@ abstract final class BundleArchive {
     Bundle bundle, {
     required String zipPath,
     required String mediaRoot,
-  }) => Isolate.run(() => _write(bundle, zipPath, mediaRoot));
+    Progress? onProgress,
+  }) => _reporting(
+    onProgress,
+    (report) => _write(bundle, zipPath, mediaRoot, report),
+  );
 
   /// Reads the bundle in the zip at [zipPath] without unpacking its images.
   ///
@@ -40,9 +47,49 @@ abstract final class BundleArchive {
     String zipPath,
     List<Attachment> images, {
     required String mediaRoot,
-  }) => Isolate.run(() => _extract(zipPath, images, mediaRoot));
+    Progress? onProgress,
+  }) => _reporting(
+    onProgress,
+    (report) => _extract(zipPath, images, mediaRoot, report),
+  );
 
-  static Bundle _write(Bundle bundle, String zipPath, String mediaRoot) {
+  /// Runs [work] on an isolate of its own, passing what it reports back to
+  /// [onProgress] on this one.
+  static Future<R> _reporting<R>(
+    Progress? onProgress,
+    R Function(Progress report) work,
+  ) async {
+    if (onProgress == null) return Isolate.run(() => work((_, _) {}));
+    final port = ReceivePort()
+      ..listen((message) {
+        final (done, total) = message as (int, int);
+        onProgress(done, total);
+      });
+    try {
+      return await _runSending(work, port.sendPort);
+    } finally {
+      // Let the last report arrive before the port closes.
+      await Future<void>.delayed(Duration.zero);
+      port.close();
+    }
+  }
+
+  /// Starts [work] on its own isolate, reporting through [send].
+  ///
+  /// A function of its own: a closure made inside [_reporting] would share
+  /// its scope, the progress callback with it, and that cannot cross to an
+  /// isolate.
+  static Future<R> _runSending<R>(
+    R Function(Progress report) work,
+    SendPort send,
+  ) => Isolate.run(() => work((done, total) => send.send((done, total))));
+
+  static Bundle _write(
+    Bundle bundle,
+    String zipPath,
+    String mediaRoot,
+    Progress report,
+  ) {
     final root = Directory(mediaRoot);
     var missing = 0;
     final notes = <Note>[];
@@ -85,6 +132,9 @@ abstract final class BundleArchive {
       addText(Bundle.manifestEntry, written.manifestJson());
       addText(Bundle.notesEntry, written.notesJson());
       addText(Bundle.labelsEntry, written.labelsJson());
+      final total = written.imageCount;
+      var done = 0;
+      report(done, total);
       for (final note in written.notes) {
         for (final image in note.attachments) {
           addFile(
@@ -93,6 +143,7 @@ abstract final class BundleArchive {
           );
           final thumb = MediaStore.resolve(root, image.thumbPath);
           if (thumb.existsSync()) addFile(Bundle.thumbEntry(image), thumb);
+          report(++done, total);
         }
       }
     } finally {
@@ -148,13 +199,16 @@ abstract final class BundleArchive {
     String zipPath,
     List<Attachment> images,
     String mediaRoot,
+    Progress report,
   ) {
     final root = Directory(mediaRoot);
     final input = InputFileStream(zipPath);
     try {
       final archive = ZipDecoder().decodeStream(input);
       final sizes = <String, int>{};
-      for (final image in images) {
+      report(0, images.length);
+      for (final (index, image) in images.indexed) {
+        if (index > 0) report(index, images.length);
         final entry = archive.findFile(Bundle.imageEntry(image));
         if (entry == null) continue;
         final file = MediaStore.resolve(root, image.relPath);
@@ -169,6 +223,7 @@ abstract final class BundleArchive {
         }
         sizes[image.id] = file.lengthSync();
       }
+      report(images.length, images.length);
       return sizes;
     } finally {
       input.closeSync();

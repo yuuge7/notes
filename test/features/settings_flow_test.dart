@@ -23,6 +23,7 @@ import 'package:notes/features/shelf/shelf_screen.dart';
 
 import '../support/fake_document_picker.dart';
 import '../support/fake_image_processor.dart';
+import '../support/fake_phone_system.dart';
 import '../support/fake_photo_source.dart';
 import '../support/fake_reminder_scheduler.dart';
 
@@ -33,6 +34,7 @@ void main() {
   late Directory media;
   late Directory cache;
   late FakeDocumentPicker picker;
+  late FakePhoneSystem phone;
 
   setUp(() {
     db = AppDatabase(
@@ -44,6 +46,7 @@ void main() {
     media = Directory.systemTemp.createTempSync('notes_settings_media_');
     cache = Directory.systemTemp.createTempSync('notes_settings_cache_');
     picker = FakeDocumentPicker();
+    phone = FakePhoneSystem();
   });
 
   tearDown(() async {
@@ -62,6 +65,7 @@ void main() {
     imageProcessorProvider.overrideWithValue(FakeImageProcessor()),
     photoSourceProvider.overrideWithValue(FakePhotoSource()),
     reminderSchedulerProvider.overrideWithValue(FakeReminderScheduler()),
+    phoneSystemProvider.overrideWithValue(phone),
   ];
 
   Future<void> settle(WidgetTester tester, {int turns = 8}) async {
@@ -151,6 +155,8 @@ void main() {
       await settle(tester);
 
       expect(brightness(), Brightness.dark);
+      // Held as the app's night mode too, for the next launch screen.
+      expect(phone.nightModes.last, ThemeChoice.dark);
       expect((await tester.runAsync(settings().load))!.theme, ThemeChoice.dark);
       await unmount(tester);
     });

@@ -56,13 +56,19 @@ class BackupRepository {
   /// Exports run one at a time. A sheet closed mid-export leaves its export
   /// running, and one opened again straight after must not clear that file
   /// away, or write over it under the same name, while it is being written.
-  Future<({File file, Bundle bundle})> export({DateTime? at}) {
-    final run = _exports.then((_) => _export(at));
+  Future<({File file, Bundle bundle})> export({
+    DateTime? at,
+    Progress? onProgress,
+  }) {
+    final run = _exports.then((_) => _export(at, onProgress));
     _exports = run.then<void>((_) {}, onError: (Object _) {});
     return run;
   }
 
-  Future<({File file, Bundle bundle})> _export(DateTime? at) async {
+  Future<({File file, Bundle bundle})> _export(
+    DateTime? at,
+    Progress? onProgress,
+  ) async {
     final exportedAt = at ?? DateTime.now();
     final bundle = Bundle(
       notes: await _dao.allNotes(),
@@ -78,6 +84,7 @@ class BackupRepository {
       bundle,
       zipPath: file.path,
       mediaRoot: (await _mediaRoot).path,
+      onProgress: onProgress,
     );
     return (file: file, bundle: written);
   }
@@ -98,12 +105,19 @@ class BackupRepository {
 
   /// Imports [preview] under [mode] and returns what was done.
   ///
+  /// [onProgress] follows the images being unpacked, the long part; once all
+  /// are out, the notes are written in one go.
+  ///
   /// The images are unpacked first, then every write happens in one
   /// transaction, worked out again from the notes as they are at that moment.
   /// If the transaction fails, nothing is written and the unpacked files are
   /// removed. Images unpacked for notes that stay as they are here are swept
   /// away with other unused files.
-  Future<ImportPlan> import(ImportPreview preview, ImportMode mode) async {
+  Future<ImportPlan> import(
+    ImportPreview preview,
+    ImportMode mode, {
+    Progress? onProgress,
+  }) async {
     final bundle = preview.bundle;
     final root = await _mediaRoot;
     final images = [for (final note in bundle.notes) ...note.attachments];
@@ -127,6 +141,7 @@ class BackupRepository {
             preview.file.path,
             unpack,
             mediaRoot: root.path,
+            onProgress: onProgress,
           );
           final unpacked = bundle.copyWith(
             notes: [

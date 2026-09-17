@@ -106,4 +106,45 @@ void main() {
     expect(after.body, 'Front pads too.');
     expect(after.updatedAt.isAfter(before.updatedAt), isTrue);
   });
+
+  testWidgets('leaving the app saves what was typed at once', (tester) async {
+    // Android may end the process in the background at any moment after, so
+    // the save cannot wait out the debounce.
+    final note = (await tester.runAsync(
+      () => repository.create(title: 'Bike', body: body),
+    ))!;
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(db)],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: EditorScreen(noteId: note.id),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, body),
+      'Front pads too.',
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    // Real time for the write, and no fake time, so the debounce never ends.
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+
+    final saved = (await tester.runAsync(() => repository.load(note.id)))!;
+    expect(saved.body, 'Front pads too.');
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpWidget(const SizedBox());
+    await settle(tester);
+  });
 }

@@ -483,8 +483,12 @@ class ChecklistRow extends StatefulWidget {
 }
 
 class _ChecklistRowState extends State<ChecklistRow> {
-  static const CustomSemanticsAction _moveUp = CustomSemanticsAction(label: 'Move up');
-  static const CustomSemanticsAction _moveDown = CustomSemanticsAction(label: 'Move down');
+  static const CustomSemanticsAction _moveUp = CustomSemanticsAction(
+    label: 'Move up',
+  );
+  static const CustomSemanticsAction _moveDown = CustomSemanticsAction(
+    label: 'Move down',
+  );
 
   bool _focused = false;
 
@@ -558,41 +562,47 @@ class _ChecklistRowState extends State<ChecklistRow> {
         if (widget.onMoveDown != null) _moveDown: widget.onMoveDown!,
       },
       child: Padding(
-      padding: EdgeInsets.only(left: indent * Gap.xl),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.draggable && !widget.readOnly)
-            ReorderableDragStartListener(
-              index: widget.index,
-              child: Semantics(
-                label: 'Drag to reorder',
-                child: SizedBox(
-                  width: 32,
-                  height: 48,
-                  child: Icon(
-                    Icons.drag_indicator,
-                    size: 20,
-                    color: colors.inkMuted,
+        padding: EdgeInsets.only(left: indent * Gap.xl),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.draggable && !widget.readOnly)
+              ReorderableDragStartListener(
+                index: widget.index,
+                child: Semantics(
+                  label: 'Drag to reorder',
+                  child: SizedBox(
+                    width: 32,
+                    height: 48,
+                    child: Icon(
+                      Icons.drag_indicator,
+                      size: 20,
+                      color: colors.inkMuted,
+                    ),
                   ),
                 ),
+              )
+            else
+              const SizedBox(width: 32),
+            SizedBox(
+              width: 48,
+              height: 48,
+              // Named after the item as typed, so TalkBack says what gets
+              // checked off.
+              child: ListenableBuilder(
+                listenable: widget.controller,
+                builder: (context, _) => Checkbox(
+                  value: checked,
+                  semanticLabel: widget.controller.text.trim().isEmpty
+                      ? 'Empty item'
+                      : widget.controller.text,
+                  onChanged: widget.readOnly
+                      ? null
+                      : (value) => widget.onChecked(value ?? false),
+                ),
               ),
-            )
-          else
-            const SizedBox(width: 32),
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: Checkbox(
-              value: checked,
-              onChanged: widget.readOnly
-                  ? null
-                  : (value) => widget.onChecked(value ?? false),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 11, bottom: 11),
+            Expanded(
               child: TextField(
                 controller: widget.controller,
                 focusNode: widget.focusNode,
@@ -607,10 +617,12 @@ class _ChecklistRowState extends State<ChecklistRow> {
                 // would also hand focus to whatever comes next on the page.
                 onEditingComplete: () {},
                 style: textStyle,
+                // The padding sits inside the field, so the whole row height
+                // takes a tap and the field meets the 48dp target.
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: EdgeInsets.zero,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 11),
                   hintText: 'List item',
                   hintStyle: AppText.noteBodyEditor.copyWith(
                     color: colors.inkMuted,
@@ -618,30 +630,29 @@ class _ChecklistRowState extends State<ChecklistRow> {
                 ),
               ),
             ),
-          ),
-          if (_focused && !widget.readOnly) ...[
-            if (widget.onIndent != null)
-              IconButton(
-                tooltip: item.indent == 0 ? 'Indent' : 'Outdent',
-                onPressed: item.indent == 0 && !widget.canIndent
-                    ? null
-                    : () => widget.onIndent!(item.indent == 0 ? 1 : 0),
-                icon: Icon(
-                  item.indent == 0
-                      ? Icons.format_indent_increase
-                      : Icons.format_indent_decrease,
-                  size: 20,
-                  color: colors.inkMuted,
+            if (_focused && !widget.readOnly) ...[
+              if (widget.onIndent != null)
+                IconButton(
+                  tooltip: item.indent == 0 ? 'Indent' : 'Outdent',
+                  onPressed: item.indent == 0 && !widget.canIndent
+                      ? null
+                      : () => widget.onIndent!(item.indent == 0 ? 1 : 0),
+                  icon: Icon(
+                    item.indent == 0
+                        ? Icons.format_indent_increase
+                        : Icons.format_indent_decrease,
+                    size: 20,
+                    color: colors.inkMuted,
+                  ),
                 ),
+              IconButton(
+                tooltip: 'Remove item',
+                onPressed: widget.onRemove,
+                icon: Icon(Icons.close, size: 20, color: colors.inkMuted),
               ),
-            IconButton(
-              tooltip: 'Remove item',
-              onPressed: widget.onRemove,
-              icon: Icon(Icons.close, size: 20, color: colors.inkMuted),
-            ),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -662,8 +673,9 @@ class _AddItemRow extends StatelessWidget {
       child: InkWell(
         onTap: onAdd,
         borderRadius: BorderRadius.circular(Radii.small),
-        child: SizedBox(
-          height: 48,
+        // At least a touch target tall, and taller when large text wraps.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: Layout.minTouch),
           child: Row(
             children: [
               const SizedBox(width: 32),
@@ -671,9 +683,13 @@ class _AddItemRow extends StatelessWidget {
                 width: 48,
                 child: Icon(Icons.add, size: 22, color: colors.inkMuted),
               ),
-              Text(
-                'List item',
-                style: AppText.noteBodyEditor.copyWith(color: colors.inkMuted),
+              Expanded(
+                child: Text(
+                  'List item',
+                  style: AppText.noteBodyEditor.copyWith(
+                    color: colors.inkMuted,
+                  ),
+                ),
               ),
             ],
           ),
@@ -712,8 +728,8 @@ class _CheckedHeader extends StatelessWidget {
           excludeSemantics: true,
           child: InkWell(
             onTap: onToggle,
-            child: SizedBox(
-              height: 48,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: Layout.minTouch),
               child: Row(
                 children: [
                   const SizedBox(width: 32),
@@ -724,9 +740,13 @@ class _CheckedHeader extends StatelessWidget {
                       color: colors.inkMuted,
                     ),
                   ),
-                  Text(
-                    label,
-                    style: AppText.metaStrong.copyWith(color: colors.inkMuted),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: AppText.metaStrong.copyWith(
+                        color: colors.inkMuted,
+                      ),
+                    ),
                   ),
                 ],
               ),

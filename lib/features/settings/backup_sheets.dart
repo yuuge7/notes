@@ -51,14 +51,26 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
   /// True while the save picker or the share sheet is up.
   bool _handing = false;
 
+  /// Images added to the file so far.
+  ({int done, int total})? _progress;
+
   @override
   void initState() {
     super.initState();
-    _export = ref.read(backupRepositoryProvider).export();
+    _export = _start();
   }
 
+  Future<({File file, Bundle bundle})> _start() => ref
+      .read(backupRepositoryProvider)
+      .export(
+        onProgress: (done, total) {
+          if (mounted) setState(() => _progress = (done: done, total: total));
+        },
+      );
+
   void _retry() => setState(() {
-    _export = ref.read(backupRepositoryProvider).export();
+    _progress = null;
+    _export = _start();
   });
 
   Future<void> _save(File file) async {
@@ -120,10 +132,17 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
         }
         final export = snapshot.data;
         if (export == null) {
-          return const _SheetFrame(
+          return _SheetFrame(
             eyebrow: 'EXPORT',
             title: 'Export notes',
-            children: [_Working('Writing every note, label, and image…')],
+            children: [
+              _imagesWorking(
+                progress: _progress,
+                before: 'Writing every note and label…',
+                during: 'Adding images',
+                after: 'Finishing the file…',
+              ),
+            ],
           );
         }
 
@@ -205,6 +224,9 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
   bool _importing = false;
   bool _failed = false;
 
+  /// Images unpacked so far while importing.
+  ({int done, int total})? _progress;
+
   Future<void> _import(ImportPreview preview) async {
     final repository = ref.read(backupRepositoryProvider);
     final messenger = ScaffoldMessenger.of(context);
@@ -218,9 +240,16 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     setState(() {
       _importing = true;
       _failed = false;
+      _progress = null;
     });
     try {
-      final plan = await repository.import(preview, mode);
+      final plan = await repository.import(
+        preview,
+        mode,
+        onProgress: (done, total) {
+          if (mounted) setState(() => _progress = (done: done, total: total));
+        },
+      );
       // The sheet may have been swiped away meanwhile; the import still ran.
       if (mounted) navigator.pop();
       final notes = plan.notesAdded + plan.notesUpdated;
@@ -405,7 +434,12 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
         ],
         const SizedBox(height: Gap.xl),
         if (_importing)
-          const _Working('Importing…')
+          _imagesWorking(
+            progress: _progress,
+            before: 'Importing…',
+            during: 'Unpacking images',
+            after: 'Saving notes…',
+          )
         else if (_mode == ImportMode.replace)
           FilledButton(
             onPressed: () => unawaited(_import(preview)),
@@ -594,25 +628,59 @@ class _Warning extends StatelessWidget {
 
 /// Work under way: what is happening, over a thin running line.
 class _Working extends StatelessWidget {
-  const _Working(this.text);
+  const _Working(this.text, {this.progress});
 
   final String text;
 
+  /// Images done of all of them, once there are images to count. Without it
+  /// the line runs without saying how far along the work is.
+  final ({int done, int total})? progress;
+
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _Body(text),
-          const SizedBox(height: Gap.md),
-          const LinearProgressIndicator(),
-          const SizedBox(height: Gap.lg),
+    final progress = this.progress;
+    final counted = progress != null && progress.total > 0;
+    final of = counted ? '${progress.done} of ${progress.total}' : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // The step is announced when it changes; the count is left to the
+        // bar, so a screen reader is not read every image.
+        Semantics(liveRegion: true, child: _Body(text)),
+        const SizedBox(height: Gap.md),
+        LinearProgressIndicator(
+          value: counted ? progress.done / progress.total : null,
+          semanticsLabel: text,
+          semanticsValue: of,
+        ),
+        if (of != null) ...[
+          const SizedBox(height: Gap.xs),
+          ExcludeSemantics(
+            child: Text(
+              of.toUpperCase(),
+              style: AppText.meta.copyWith(
+                color: Theme.of(context).colors.inkMuted,
+              ),
+            ),
+          ),
         ],
-      ),
+        const SizedBox(height: Gap.lg),
+      ],
     );
   }
+}
+
+/// What the progress of images being copied reads as, once there are any:
+/// the images, then whatever comes after them.
+_Working _imagesWorking({
+  required ({int done, int total})? progress,
+  required String before,
+  required String during,
+  required String after,
+}) {
+  if (progress == null || progress.total == 0) return _Working(before);
+  if (progress.done >= progress.total) return _Working(after);
+  return _Working(during, progress: progress);
 }
 
 /// Counts in a column of mono figures, each with what it counts.

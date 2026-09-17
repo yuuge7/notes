@@ -2,3 +2,6 @@ tags:
   # Timing checks. CI runs them on their own, since other tests running
   # alongside them on a busy CPU skew the numbers.
   perf:
+  # Screenshots of the note card, recorded on Windows. Text rasterises
+  # differently on Linux, so CI leaves them out; run them locally.
+  golden:

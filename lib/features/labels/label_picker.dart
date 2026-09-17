@@ -11,6 +11,7 @@ import 'package:notes/data/providers.dart';
 import 'package:notes/data/repository/label_repository.dart';
 import 'package:notes/domain/model/label.dart';
 import 'package:notes/features/labels/label_providers.dart';
+import 'package:notes/features/notes/widgets/notes_states.dart';
 
 /// Opens the page for choosing the labels on [noteIds]. Every tap applies at
 /// once, so there is nothing to confirm on the way out.
@@ -62,7 +63,8 @@ class _LabelPickerState extends ConsumerState<LabelPicker> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colors;
-    final all = ref.watch(labelsProvider).value ?? const <Label>[];
+    final labelsAsync = ref.watch(labelsProvider);
+    final all = labelsAsync.value ?? const <Label>[];
     final typed = LabelRepository.cleanName(_field.text);
     final filter = SearchText.fold(typed ?? '');
     final shown = [
@@ -107,12 +109,16 @@ class _LabelPickerState extends ConsumerState<LabelPicker> {
                           LabelRepository.maxLength,
                         ),
                       ],
+                      textAlignVertical: TextAlignVertical.center,
                       style: AppText.uiLarge.copyWith(color: colors.ink),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: Gap.md,
+                        ),
+                        constraints: const BoxConstraints(
+                          minHeight: Layout.minTouch,
                         ),
                         hintText: 'Find or make a label',
                         hintStyle: AppText.uiLarge.copyWith(
@@ -148,6 +154,14 @@ class _LabelPickerState extends ConsumerState<LabelPicker> {
                 stream: _usage,
                 builder: (context, snapshot) {
                   final usage = snapshot.data ?? const <String, int>{};
+                  if (labelsAsync.hasError && !labelsAsync.hasValue) {
+                    return NotesError(
+                      eyebrow: 'LABELS DID NOT LOAD',
+                      detail: '${labelsAsync.error}',
+                      onRetry: () => ref.invalidate(labelsProvider),
+                    );
+                  }
+                  if (!labelsAsync.hasValue) return const RowsSkeleton();
                   return ListView(
                     padding: EdgeInsets.only(
                       bottom: Gap.xl + MediaQuery.paddingOf(context).bottom,
@@ -272,10 +286,7 @@ class _CreateRow extends StatelessWidget {
                   'Create “$name”',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AppText.uiStrong.copyWith(
-                    color: colors.accent,
-                    fontSize: 16,
-                  ),
+                  style: AppText.uiLargeStrong.copyWith(color: colors.accent),
                 ),
               ),
             ],

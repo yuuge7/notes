@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:notes/core/theme/app_colors.dart';
 import 'package:notes/core/theme/tokens.dart';
 import 'package:notes/core/theme/typography.dart';
+import 'package:notes/core/ui/load_more.dart';
 import 'package:notes/core/ui/masonry.dart';
 import 'package:notes/core/ui/shelf_scaffold.dart';
 import 'package:notes/core/util/date_group.dart';
@@ -17,6 +18,7 @@ import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/data/media/photo_source.dart';
 import 'package:notes/data/providers.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/note_page.dart';
 import 'package:notes/features/editor/editor_outcome.dart';
 import 'package:notes/features/editor/editor_screen.dart';
 import 'package:notes/features/labels/label_providers.dart';
@@ -48,7 +50,7 @@ class NotesScreen extends ConsumerWidget {
     final layout = ref.watch(notesLayoutModeProvider);
     final columns = columnsFor(layout);
     final startup = ref.watch(appStartupProvider);
-    final AsyncValue<List<Note>>? notes;
+    final AsyncValue<NotePage>? notes;
     if (!startup.hasValue) {
       notes = null;
     } else if (labelId == null) {
@@ -56,7 +58,8 @@ class NotesScreen extends ConsumerWidget {
     } else {
       notes = ref.watch(labelNotesProvider(labelId));
     }
-    final noteList = notes?.value ?? const <Note>[];
+    final page = notes?.value;
+    final noteList = page?.notes ?? const <Note>[];
     final selection = ref.watch(noteSelectionProvider(Shelf.active));
     final selecting = selection.isNotEmpty;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
@@ -94,25 +97,36 @@ class NotesScreen extends ConsumerWidget {
           ? const NotesEmpty()
           : LabelEmpty(name: label?.name ?? '');
     } else {
-      content = _NotesGrid(
-        notes: noteList,
-        columns: columns,
-        selection: selection,
-        onToggleSelected: (id) => ref
-            .read(noteSelectionProvider(Shelf.active).notifier)
-            .toggle(id),
-        onReorder: (noteId, prevKey, nextKey) {
-          // A drag starts by selecting the note; landing it is a move, not a
-          // selection, so the selection ends with the drag.
-          ref.read(noteSelectionProvider(Shelf.active).notifier).clear();
-          unawaited(
-            ref
-                .read(noteRepositoryProvider)
-                .reorder(noteId, prevKey: prevKey, nextKey: nextKey),
-          );
-        },
-        bottomPadding:
-            Layout.composeBarHeight + Gap.lg * 2 + bottomInset + Gap.sm,
+      content = LoadMore(
+        loaded: noteList.length,
+        hasMore: page?.hasMore ?? false,
+        onMore: () => ref
+            .read(
+              noteWindowProvider(
+                labelId == null ? Shelf.active.name : 'label:$labelId',
+              ).notifier,
+            )
+            .grow(),
+        child: _NotesGrid(
+          notes: noteList,
+          after: page?.after,
+          columns: columns,
+          selection: selection,
+          onToggleSelected: (id) =>
+              ref.read(noteSelectionProvider(Shelf.active).notifier).toggle(id),
+          onReorder: (noteId, prevKey, nextKey) {
+            // A drag starts by selecting the note; landing it is a move, not a
+            // selection, so the selection ends with the drag.
+            ref.read(noteSelectionProvider(Shelf.active).notifier).clear();
+            unawaited(
+              ref
+                  .read(noteRepositoryProvider)
+                  .reorder(noteId, prevKey: prevKey, nextKey: nextKey),
+            );
+          },
+          bottomPadding:
+              Layout.composeBarHeight + Gap.lg * 2 + bottomInset + Gap.sm,
+        ),
       );
     }
 
@@ -141,7 +155,7 @@ class NotesScreen extends ConsumerWidget {
                 else
                   _Header(
                     title: labelId == null ? 'Notes' : label?.name ?? '',
-                    count: notes?.value?.length,
+                    count: page?.total,
                     layout: layout,
                     onToggleLayout: () =>
                         ref.read(notesLayoutModeProvider.notifier).toggle(),
@@ -373,11 +387,13 @@ typedef _Section = ({
   List<Note> notes,
   int start,
   List<String> runKeys,
+  String? runEnd,
 });
 
 class _NotesGrid extends StatefulWidget {
   const _NotesGrid({
     required this.notes,
+    required this.after,
     required this.columns,
     required this.selection,
     required this.onToggleSelected,
@@ -386,6 +402,9 @@ class _NotesGrid extends StatefulWidget {
   });
 
   final List<Note> notes;
+
+  /// Where the first note not loaded yet sits, if any.
+  final ({String sortKey, bool pinned})? after;
   final int columns;
   final Set<String> selection;
   final ValueChanged<String> onToggleSelected;
@@ -478,6 +497,11 @@ class _NotesGridState extends State<_NotesGrid> {
     // of the unpinned run starting at [start].
     final pinnedKeys = [for (final note in pinned) note.sortKey];
     final otherKeys = [for (final note in others) note.sortKey];
+    // With more notes to load, the end of what is loaded is not the end of
+    // the run: a note moved there must still sort before the next one.
+    final after = widget.after;
+    final pinnedEnd = after != null && after.pinned ? after.sortKey : null;
+    final otherEnd = after != null && !after.pinned ? after.sortKey : null;
 
     final sections = <_Section>[
       if (pinned.isNotEmpty)
@@ -487,6 +511,7 @@ class _NotesGridState extends State<_NotesGrid> {
           notes: pinned,
           start: 0,
           runKeys: pinnedKeys,
+          runEnd: pinnedEnd,
         ),
     ];
     var start = 0;
@@ -497,6 +522,7 @@ class _NotesGridState extends State<_NotesGrid> {
         notes: dayNotes,
         start: start,
         runKeys: otherKeys,
+        runEnd: otherEnd,
       ));
       start += dayNotes.length;
     }
@@ -548,7 +574,7 @@ class _NotesGridState extends State<_NotesGrid> {
         to: section.start + toIndex,
       );
       if (bounds == null) return;
-      widget.onReorder(noteId, bounds.prev, bounds.next);
+      widget.onReorder(noteId, bounds.prev, bounds.next ?? section.runEnd);
     }
 
     return Column(

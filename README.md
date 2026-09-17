@@ -15,7 +15,9 @@ own. Everything stays on the device: no account, no sign-in, and no network need
 - **Search** across titles, bodies, list items, and label names. Words match from their first letters,
   ignoring case and accents, and results can be filtered by type, colour, and label.
 - **Reminders** at a set time or on a daily, weekly, monthly, or yearly repeat, with Done and Snooze on the
-  notification itself. Reminders survive reboots and app updates.
+  notification itself. Reminders survive reboots and app updates. On phones whose makers are known to stop apps
+  in the background (Xiaomi, Samsung, Huawei, OPPO, vivo, and others), a one-time hint opens the setting that
+  lets reminders ring.
 - **Images** from the Android photo picker or the camera, compressed on the device, shown as a mosaic on the
   card and full screen with pinch-to-zoom.
 - **Archive and trash**, with undo, plus Make a copy and Share. The trash keeps notes for 1, 7, or 30 days.
@@ -23,8 +25,13 @@ own. Everything stays on the device: no account, no sign-in, and no network need
   with another app. Import merges it with the notes on the phone, keeping each note's latest edit, or replaces
   them all.
 - **Settings** for the theme (light, dark, or the system's), where checked list items go, and how long the
-  trash keeps notes.
-- **TalkBack labels** and layouts that hold up at 200% text size.
+  trash keeps notes. The launch screen follows the chosen theme, and the icon takes part in Android's themed
+  icons.
+- **Accessible:** TalkBack labels, 48dp touch targets, text at 4.5:1 contrast in both themes and on every note
+  colour, layouts that hold up at 200% text size, and short transitions that turn into a fade when Android's
+  animations are turned off.
+- **Private by default.** Android's cloud backup and device transfer leave the app's data alone; export is
+  the backup.
 
 ## Download
 
@@ -94,6 +101,8 @@ to their time rather than exactly on it.
 | Static analysis | `flutter analyze` |
 | All tests | `flutter test` |
 | Timing checks only | `flutter test --tags perf` |
+| Note card screenshots (goldens) | `flutter test --tags golden`, and `--update-goldens` after a deliberate change |
+| Create, remind, and ring on a device | see [Testing](#testing) |
 | Local release build | `flutter build apk --release` |
 
 ## Project structure
@@ -102,9 +111,11 @@ to their time rather than exactly on it.
 lib/
   core/router/         go_router shelves: Notes, Archive, Trash
   core/theme/          colour tokens, typography, spacing, motion (the only place colours and sizes are defined)
-  core/ui/             shelf scaffold, masonry columns, undo messages, highlighted search text
+  core/ui/             shelf scaffold, masonry columns, paging, page transitions, undo messages, search highlights
   core/util/           sort keys, day grouping, checklist rules, search and share text, reminder times, ids
   data/                Drift database and migrations, full-text index, DAOs, repositories, providers, seed data
+  data/backup/         export bundle writer and reader
+  data/device/         the phone's maker, night mode, and background settings, over a platform channel
   data/media/          image files and compression, photo picker and camera, cleanup of unused files
   data/notifications/  notification scheduler, with Done and Snooze handled on a background isolate
   data/reminders/      keeps scheduled notifications in line with stored reminders
@@ -117,7 +128,9 @@ lib/
   features/reminders/  reminder sheet, reminder chip, Reminders page
   features/search/     search page with filters and recent searches
   features/shelf/      Archive and Trash
-test/                  unit, repository, and widget tests; fakes in test/support/
+test/                  unit, repository, widget, and accessibility tests; fakes in test/support/
+test/goldens/          note card screenshots in every colour and both themes
+integration_test/      create a note, remind it, and wait for the notification on a device
 assets/fonts/          Literata, Schibsted Grotesk, Martian Mono
 .github/workflows/     release pipeline
 ```
@@ -144,8 +157,25 @@ Tests run against a real in-memory database wherever data is involved. They cove
   come from a newer version; and 5,000 notes exported and replaced in about a second on a desktop.
 - **Settings:** the theme the app wears, where checked list items go, the trash's stay, and schema upgrades
   that keep notes and leave settings at their defaults.
-- **Layout and accessibility:** a 360dp-wide phone at 200% text size in both themes, and what TalkBack reads
-  for each card.
+- **Grid paging:** 250 notes load a hundred at a time as the grid nears its end, and a note dragged to the
+  end of what is loaded still lands before the next one.
+- **Finish gate:** every screen and sheet, in both themes on a 360dp-wide phone: touch targets of at least
+  48dp with a label, text at 4.5:1 contrast, and nothing overflowing at 200% text size. Alongside it, a scan
+  for colours and font sizes defined outside `lib/core/theme/`, contrast checks for every colour pair the
+  theme defines, and every transition held to 300ms.
+- **Screenshots:** the note card in all eight colours and both themes, compared pixel for pixel. They are
+  recorded on Windows and skipped in CI, where text renders slightly differently.
+- **On a device:** `integration_test/reminder_rings_test.dart` writes a note in the app, sets a reminder half
+  a minute out, and waits for Android to post it. `flutter test` uninstalls the app when it finishes, which
+  deletes its notes, so run it only on an emulator or phone whose Notes data you can lose:
+
+  ```sh
+  flutter build apk --debug
+  adb install -r build/app/outputs/flutter-apk/app-debug.apk
+  adb shell pm grant com.ionel.notes android.permission.POST_NOTIFICATIONS
+  adb shell appops set com.ionel.notes SCHEDULE_EXACT_ALARM allow
+  flutter test integration_test/reminder_rings_test.dart
+  ```
 
 ## Contributing
 
@@ -173,8 +203,8 @@ which is fine for testing but cannot update an installed release from GitHub.
 
 [`.github/workflows/release.yml`](.github/workflows/release.yml) runs on every push to `main`:
 
-1. It installs Flutter 3.47.0, generates code, runs the analyzer, and runs every test. Any failure stops the
-   release.
+1. It installs Flutter 3.47.0, generates code, runs the analyzer, and runs every test except the screenshots.
+   Any failure stops the release.
 2. It picks the next version. The major number comes from `version` in `pubspec.yaml`; the minor number is one
    higher than the highest `vMAJOR.*` tag on GitHub. The first release under major version 1 is `v1.0`, then
    `v1.1`, `v1.2`, and so on.

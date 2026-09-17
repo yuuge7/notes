@@ -62,6 +62,24 @@ abstract final class AppText {
     fontVariations: [FontVariation('opsz', 16), FontVariation('wght', 400)],
   );
 
+  /// A checklist item on a card, a step smaller than the body beside it.
+  static const noteItem = TextStyle(
+    fontFamily: Faces.reading,
+    fontSize: 14,
+    height: 22 / 15,
+    fontVariations: [FontVariation('opsz', 14), FontVariation('wght', 400)],
+  );
+
+  /// Titles of sheets, dialogs, the drawer, and the selection count.
+  static const displaySmall = TextStyle(
+    fontFamily: Faces.reading,
+    fontSize: 22,
+    height: 32 / 28,
+    fontWeight: FontWeight.w600,
+    fontVariations: [FontVariation('opsz', 22), FontVariation('wght', 600)],
+    letterSpacing: -0.3,
+  );
+
   static const noteTitleEditor = TextStyle(
     fontFamily: Faces.reading,
     fontSize: 22,
@@ -96,6 +114,14 @@ abstract final class AppText {
     fontVariations: [FontVariation('wght', 500)],
   );
 
+  static const uiLargeStrong = TextStyle(
+    fontFamily: Faces.ui,
+    fontSize: 16,
+    height: 22 / 16,
+    fontWeight: FontWeight.w600,
+    fontVariations: [FontVariation('wght', 600)],
+  );
+
   /// Timestamps, counts, day headers. Uppercase is applied at the call site.
   static const meta = TextStyle(
     fontFamily: Faces.meta,
@@ -116,6 +142,16 @@ abstract final class AppText {
     fontWeight: FontWeight.w400,
     fontVariations: [FontVariation('wdth', 75), FontVariation('wght', 400)],
     letterSpacing: 0.22,
+  );
+
+  /// A count laid over a photo, where 11px would be lost.
+  static const metaOverlay = TextStyle(
+    fontFamily: Faces.meta,
+    fontSize: 13,
+    height: 16 / 13,
+    fontWeight: FontWeight.w600,
+    fontVariations: [FontVariation('wdth', 100), FontVariation('wght', 600)],
+    letterSpacing: 0.52,
   );
 
   static const metaStrong = TextStyle(

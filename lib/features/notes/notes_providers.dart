@@ -2,6 +2,7 @@ import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/data/providers.dart';
 import 'package:notes/data/seed.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/note_page.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'notes_providers.g.dart';
@@ -20,9 +21,24 @@ Future<void> appStartup(Ref ref) async {
   await seedIfEmpty(ref.watch(noteDaoProvider));
 }
 
+/// How many notes a shelf loads at first, and how many more each time its
+/// end comes near.
+const notePageSize = 100;
+
+/// How many notes a shelf, or a label's page, has loaded so far. Starts again
+/// at one page when the screen leaves.
 @riverpod
-Stream<List<Note>> shelfNotes(Ref ref, Shelf shelf) =>
-    ref.watch(noteRepositoryProvider).watch(shelf);
+class NoteWindow extends _$NoteWindow {
+  @override
+  int build(String shelf) => notePageSize;
+
+  void grow() => state += notePageSize;
+}
+
+@riverpod
+Stream<NotePage> shelfNotes(Ref ref, Shelf shelf) => ref
+    .watch(noteRepositoryProvider)
+    .watchPage(shelf, ref.watch(noteWindowProvider(shelf.name)));
 
 @riverpod
 Stream<Note?> noteById(Ref ref, String id) =>

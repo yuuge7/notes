@@ -5,6 +5,7 @@ import 'package:notes/core/util/app_version.dart';
 import 'package:notes/data/backup/document_picker.dart';
 import 'package:notes/data/db/database.dart';
 import 'package:notes/data/db/note_dao.dart';
+import 'package:notes/data/device/phone_system.dart';
 import 'package:notes/data/media/compress_image_processor.dart';
 import 'package:notes/data/media/image_processor.dart';
 import 'package:notes/data/media/media_janitor.dart';
@@ -79,6 +80,10 @@ MediaStore mediaStore(Ref ref) => MediaStore(ref.watch(mediaRootProvider.future)
 /// handed on. Tests point it at a temporary folder.
 @Riverpod(keepAlive: true)
 Future<Directory> cacheRoot(Ref ref) => getTemporaryDirectory();
+
+/// The phone's own settings. Tests put a fake in its place.
+@Riverpod(keepAlive: true)
+PhoneSystem phoneSystem(Ref ref) => DevicePhoneSystem();
 
 /// The system's pickers and share sheet. Tests put a fake in its place.
 @Riverpod(keepAlive: true)

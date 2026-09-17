@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:notes/core/theme/app_colors.dart';
 import 'package:notes/core/theme/tokens.dart';
 import 'package:notes/core/theme/typography.dart';
+import 'package:notes/core/ui/page_transitions.dart';
 
 /// Builds the two themes from [AppColors].
 ///
@@ -32,7 +33,7 @@ abstract final class AppTheme {
 
     final textTheme = TextTheme(
       displaySmall: AppText.display.copyWith(color: colors.ink),
-      headlineSmall: AppText.display.copyWith(color: colors.ink, fontSize: 22),
+      headlineSmall: AppText.displaySmall.copyWith(color: colors.ink),
       titleMedium: AppText.uiLarge.copyWith(color: colors.ink),
       titleSmall: AppText.uiStrong.copyWith(color: colors.ink),
       bodyLarge: AppText.uiLarge.copyWith(color: colors.ink),
@@ -53,6 +54,9 @@ abstract final class AppTheme {
       textTheme: textTheme,
       fontFamily: Faces.ui,
       splashFactory: InkRipple.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {TargetPlatform.android: AppPageTransitions()},
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: colors.ground,
         surfaceTintColor: Colors.transparent,
@@ -60,7 +64,7 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: AppText.display.copyWith(color: colors.ink, fontSize: 22),
+        titleTextStyle: AppText.displaySmall.copyWith(color: colors.ink),
       ),
       iconTheme: IconThemeData(color: colors.ink, size: 22),
       dividerTheme: DividerThemeData(
@@ -97,7 +101,11 @@ abstract final class AppTheme {
         contentTextStyle: AppText.ui.copyWith(
           color: brightness == Brightness.light ? colors.ground : colors.ink,
         ),
-        actionTextColor: colors.accent,
+        // In light the bar is ink, where the light accent would not read;
+        // the dark theme's accent is the same hue lifted for a dark ground.
+        actionTextColor: brightness == Brightness.light
+            ? AppColors.dark.accent
+            : colors.accent,
         behavior: SnackBarBehavior.floating,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -179,10 +187,7 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(Radii.sheet),
           side: BorderSide(color: colors.hairline),
         ),
-        titleTextStyle: AppText.display.copyWith(
-          color: colors.ink,
-          fontSize: 22,
-        ),
+        titleTextStyle: AppText.displaySmall.copyWith(color: colors.ink),
         contentTextStyle: AppText.noteBody.copyWith(color: colors.inkMuted),
       ),
       drawerTheme: DrawerThemeData(

@@ -56,7 +56,7 @@ class SelectionBar extends ConsumerWidget {
               child: Text(
                 '$count',
                 maxLines: 1,
-                style: AppText.display.copyWith(color: colors.ink, fontSize: 22),
+                style: AppText.displaySmall.copyWith(color: colors.ink),
               ),
             ),
           ),

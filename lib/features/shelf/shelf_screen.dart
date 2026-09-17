@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:notes/core/theme/app_colors.dart';
 import 'package:notes/core/theme/tokens.dart';
 import 'package:notes/core/theme/typography.dart';
+import 'package:notes/core/ui/load_more.dart';
 import 'package:notes/core/ui/shelf_scaffold.dart';
 import 'package:notes/core/ui/undo.dart';
 import 'package:notes/data/db/note_dao.dart';
@@ -40,7 +41,8 @@ class ShelfScreen extends ConsumerWidget {
     final selection = ref.watch(noteSelectionProvider(shelf));
     final layout = ref.watch(notesLayoutModeProvider);
     final columns = NotesScreen.columnsFor(layout);
-    final notes = notesAsync.value ?? const <Note>[];
+    final page = notesAsync.value;
+    final notes = page?.notes ?? const <Note>[];
     final colors = Theme.of(context).colors;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final retention =
@@ -60,34 +62,39 @@ class ShelfScreen extends ConsumerWidget {
           ? TrashEmpty(retention: retention)
           : const ArchiveEmpty();
     } else {
-      content = MasonryGridView.count(
-        padding: EdgeInsets.fromLTRB(
-          Layout.contentRight,
-          Gap.sm,
-          Layout.contentRight,
-          Gap.xxl + bottomInset,
+      content = LoadMore(
+        loaded: notes.length,
+        hasMore: page?.hasMore ?? false,
+        onMore: () => ref.read(noteWindowProvider(shelf.name).notifier).grow(),
+        child: MasonryGridView.count(
+          padding: EdgeInsets.fromLTRB(
+            Layout.contentRight,
+            Gap.sm,
+            Layout.contentRight,
+            Gap.xxl + bottomInset,
+          ),
+          crossAxisCount: columns,
+          mainAxisSpacing: Layout.cardGap,
+          crossAxisSpacing: Layout.cardGap,
+          itemCount: notes.length,
+          itemBuilder: (context, index) {
+            final note = notes[index];
+            return RepaintBoundary(
+              child: NoteTile(
+                key: ValueKey(note.id),
+                note: note,
+                readOnly: _isTrash,
+                selecting: selection.isNotEmpty,
+                selected: selection.contains(note.id),
+                onToggleSelected: _isTrash
+                    ? null
+                    : () => ref
+                          .read(noteSelectionProvider(shelf).notifier)
+                          .toggle(note.id),
+              ),
+            );
+          },
         ),
-        crossAxisCount: columns,
-        mainAxisSpacing: Layout.cardGap,
-        crossAxisSpacing: Layout.cardGap,
-        itemCount: notes.length,
-        itemBuilder: (context, index) {
-          final note = notes[index];
-          return RepaintBoundary(
-            child: NoteTile(
-              key: ValueKey(note.id),
-              note: note,
-              readOnly: _isTrash,
-              selecting: selection.isNotEmpty,
-              selected: selection.contains(note.id),
-              onToggleSelected: _isTrash
-                  ? null
-                  : () => ref
-                        .read(noteSelectionProvider(shelf).notifier)
-                        .toggle(note.id),
-            ),
-          );
-        },
       );
     }
 
@@ -112,7 +119,7 @@ class ShelfScreen extends ConsumerWidget {
             else
               ShelfHeader(
                 title: _isTrash ? 'Trash' : 'Archive',
-                count: notesAsync.value?.length,
+                count: page?.total,
                 action: _isTrash && notes.isNotEmpty
                     ? TextButton(
                         onPressed: () =>
@@ -197,44 +204,62 @@ class ShelfHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colors;
 
+    // A wrap, not a row: at large text sizes the action drops below the
+    // title instead of squeezing it to a letter a line.
     return Padding(
       padding: const EdgeInsets.fromLTRB(Gap.xs, Gap.lg, Gap.sm, Gap.sm),
-      child: Row(
-        children: [
-          Builder(
-            builder: (context) => IconButton(
-              tooltip: 'Open menu',
-              onPressed: () => Scaffold.of(context).openDrawer(),
-              icon: Icon(Icons.menu, color: colors.ink),
-            ),
-          ),
-          const SizedBox(width: Gap.xs),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: SizedBox(
+        width: double.infinity,
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Semantics(
-                  header: true,
-                  child: Text(
-                    title,
-                    style: AppText.display.copyWith(color: colors.ink),
+                Builder(
+                  builder: (context) => IconButton(
+                    tooltip: 'Open menu',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                    icon: Icon(Icons.menu, color: colors.ink),
                   ),
                 ),
-                const SizedBox(height: Gap.xs),
-                SizedBox(
-                  height: AppText.meta.fontSize! * AppText.meta.height!,
-                  child: count == null
-                      ? null
-                      : Text(
-                          count == 1 ? '1 NOTE' : '$count NOTES',
-                          style: AppText.meta.copyWith(color: colors.inkMuted),
+                const SizedBox(width: Gap.xs),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Semantics(
+                        header: true,
+                        child: Text(
+                          title,
+                          style: AppText.display.copyWith(color: colors.ink),
                         ),
+                      ),
+                      const SizedBox(height: Gap.xs),
+                      // Held open while the count loads, so the title does
+                      // not move when it lands.
+                      SizedBox(
+                        height: MediaQuery.textScalerOf(
+                          context,
+                        ).scale(AppText.meta.fontSize! * AppText.meta.height!),
+                        child: count == null
+                            ? null
+                            : Text(
+                                count == 1 ? '1 NOTE' : '$count NOTES',
+                                style: AppText.meta.copyWith(
+                                  color: colors.inkMuted,
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-          ?action,
-        ],
+            ?action,
+          ],
+        ),
       ),
     );
   }

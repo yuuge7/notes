@@ -18,6 +18,10 @@ class PreferenceDao extends DatabaseAccessor<AppDatabase>
   /// on the first run rather than whenever the app finds no notes.
   static const seeded = 'seeded';
 
+  /// Set once the hint about a phone that stops background apps has been
+  /// acted on or dismissed.
+  static const backgroundHintDone = 'background_hint_done';
+
   /// Every stored value by key, now and after each change.
   Stream<Map<String, String>> watchAll() =>
       select(preferences)
