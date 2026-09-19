@@ -33,6 +33,19 @@ void main() {
     for (final label in (await notes.load(noteId))!.labels) label.name,
   ];
 
+  test('a deleted label goes on no note', () async {
+    final note = await notes.create(title: 'Boiler');
+    final gone = await labels.create('Gone');
+    await labels.delete(gone.id);
+
+    await labels.setOnNotes([note.id], gone.id, on: true);
+
+    expect(await labelsOn(note.id), isEmpty);
+    // Brought back, it is on none of the notes it was never put on.
+    await labels.restore((labelId: gone.id, noteIds: const []));
+    expect(await labelsOn(note.id), isEmpty);
+  });
+
   group('create', () {
     test('lists labels in the order they were made', () async {
       await labels.create('Home');

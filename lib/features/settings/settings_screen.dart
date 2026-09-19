@@ -13,7 +13,9 @@ import 'package:notes/data/device/home_widgets.dart';
 import 'package:notes/data/providers.dart';
 import 'package:notes/domain/model/settings.dart';
 import 'package:notes/features/settings/backup_sheets.dart';
+import 'package:notes/features/settings/settings_rows.dart';
 import 'package:notes/features/settings/theme_swatches.dart';
+import 'package:notes/features/settings/widget_feed_sheet.dart';
 
 /// The app's few settings, and the way notes leave the phone and come back.
 ///
@@ -49,6 +51,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       debugPrint('The file could not be opened: $error');
       showMessage(messenger, 'That file could not be opened');
     }
+  }
+
+  /// Asks what the widget shows, then hands it to the launcher to place.
+  Future<void> _addNotesWidget() async {
+    final widgets = ref.read(homeWidgetsProvider);
+    final feed = await showWidgetFeedSheet(context);
+    if (feed != null) await widgets.pin(HomeWidget.notes, feed: feed);
   }
 
   Future<void> _rebuildIndex() async {
@@ -110,7 +119,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ),
-            const _SectionHeader('THEME'),
+            const SettingsHeader('THEME'),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Gap.xl),
               child: ThemeSwatches(
@@ -118,7 +127,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onChanged: (theme) => unawaited(repository.setTheme(theme)),
               ),
             ),
-            const _SectionHeader('CHECKED LIST ITEMS'),
+            const SettingsHeader('CHECKED LIST ITEMS'),
             RadioGroup<CheckedItems>(
               groupValue: settings.checkedItems,
               onChanged: (value) {
@@ -135,7 +144,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
               ),
             ),
-            const _SectionHeader('TRASH'),
+            const SettingsHeader('TRASH'),
             const _Intro('Notes in the trash are deleted for good after'),
             RadioGroup<TrashRetention>(
               groupValue: settings.trashRetention,
@@ -156,35 +165,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               muted: true,
             ),
             if (canPin) ...[
-              const _SectionHeader('HOME SCREEN'),
-              _Action(
+              const SettingsHeader('HOME SCREEN'),
+              SettingsAction(
                 icon: Icons.view_agenda_outlined,
                 label: 'Add the notes widget',
-                detail: 'Pinned notes, then the latest',
-                onTap: () => unawaited(widgets.pin(HomeWidget.notes)),
+                detail: 'Every note, the pinned ones, or one label’s',
+                onTap: () => unawaited(_addNotesWidget()),
               ),
-              _Action(
+              SettingsAction(
                 icon: Icons.edit_outlined,
                 label: 'Add the new note widget',
                 detail: 'A note, a list, or a photo in one tap',
                 onTap: () => unawaited(widgets.pin(HomeWidget.capture)),
               ),
             ],
-            const _SectionHeader('BACKUP'),
-            _Action(
+            const SettingsHeader('BACKUP'),
+            SettingsAction(
               icon: Icons.upload_file_outlined,
               label: 'Export notes',
               detail: 'Every note, label, and image, in one file',
               onTap: () => unawaited(showExportSheet(context)),
             ),
-            _Action(
+            SettingsAction(
               icon: Icons.download_outlined,
               label: 'Import notes',
               detail: 'From a file made with Export notes',
               onTap: () => unawaited(_import()),
             ),
-            const _SectionHeader('SEARCH'),
-            _Action(
+            const SettingsHeader('SEARCH'),
+            SettingsAction(
               icon: Icons.manage_search,
               label: 'Rebuild search index',
               detail: _rebuilding
@@ -200,28 +209,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Gap.xl, Gap.xl, Gap.xl, Gap.md),
-      child: Semantics(
-        header: true,
-        child: Text(
-          title,
-          style: AppText.metaStrong.copyWith(
-            color: Theme.of(context).colors.inkMuted,
-          ),
         ),
       ),
     );
@@ -265,63 +252,6 @@ class _Choice<T> extends StatelessWidget {
       subtitle: detail == null
           ? null
           : Text(detail, style: AppText.ui.copyWith(color: colors.inkMuted)),
-    );
-  }
-}
-
-class _Action extends StatelessWidget {
-  const _Action({
-    required this.icon,
-    required this.label,
-    required this.detail,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final String detail;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colors;
-    return Semantics(
-      button: true,
-      enabled: onTap != null,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 64),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: Gap.xl,
-              vertical: Gap.md,
-            ),
-            child: Row(
-              children: [
-                Icon(icon, color: colors.inkMuted),
-                const SizedBox(width: Gap.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: AppText.uiLarge.copyWith(color: colors.ink),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        detail,
-                        style: AppText.ui.copyWith(color: colors.inkMuted),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -86,22 +86,38 @@ class _NotesAppState extends ConsumerState<NotesApp> {
     switch (action) {
       case OpenNote(:final noteId):
         await _open(noteId);
-      case NewNote():
-        await _openNew();
+      case NewNote(:final feed):
+        await _openNew(feed: feed);
       case NewList():
         await _openNew(asList: true);
       case AddPhotos():
         await _openNew(photos: (source) => source.pickPhotos());
       case TakePhoto():
         await _openNew(photos: (source) async => [?await source.takePhoto()]);
+      case ShowFeed(feed: LabelFeed(:final labelId)):
+        await _showLabel(labelId);
+      case ShowFeed():
+        // The grid, or its pinned notes: the app as it was left.
+        break;
     }
   }
 
+  /// Shows a label's page, as the drawer does, from under whatever was open
+  /// over it. A note being edited was saved as the app went to the back.
+  Future<void> _showLabel(String labelId) async {
+    final context = await _navigator();
+    if (context == null || !context.mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    appRouter.go('/label/$labelId');
+  }
+
   /// Opens a new note over whatever is showing. A photo note opens only once
-  /// there is a photo, as it does from the compose bar.
+  /// there is a photo, as it does from the compose bar. A note started from a
+  /// widget's [feed] belongs on it: pinned, or wearing its label.
   Future<void> _openNew({
     bool asList = false,
     Future<List<File>> Function(PhotoSource source)? photos,
+    WidgetFeed feed = const AllFeed(),
   }) async {
     final taken = photos == null
         ? const <File>[]
@@ -113,6 +129,11 @@ class _NotesAppState extends ConsumerState<NotesApp> {
       context,
       ref.read(noteRepositoryProvider),
       startAsChecklist: asList,
+      startPinned: feed is PinnedFeed,
+      labelId: switch (feed) {
+        LabelFeed(:final labelId) => labelId,
+        _ => null,
+      },
       initialPhotos: taken,
     );
   }

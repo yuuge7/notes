@@ -2,7 +2,7 @@
 <resources>
     <!-- The home screen widgets, as the launcher's list names them. -->
     <string name="widget_notes_label">Notes</string>
-    <string name="widget_notes_description">Pinned notes, then the latest</string>
+    <string name="widget_notes_description">Every note, the pinned ones, or one label’s</string>
     <string name="widget_capture_label">New note</string>
     <string name="widget_capture_description">A note, a list, or a photo in one tap</string>
 
@@ -13,9 +13,23 @@
     </plurals>
     <!-- Before the app has run once, there is nothing to show yet. -->
     <string name="widget_notes_waiting">Open Notes once, and your notes show here</string>
-    <string name="widget_notes_empty">Tap + to take a note</string>
+    <!-- The label the widget was set to has been deleted since. -->
+    <string name="widget_notes_gone">That label was deleted. Tap to choose what this widget shows</string>
     <string name="widget_empty_note">Empty note</string>
     <string name="widget_more">+%d more</string>
+
+    <!-- A notes widget's settings: what it shows. -->
+    <string name="widget_setup_label">Notes widget</string>
+    <string name="widget_setup_heading">SHOW ON THIS WIDGET</string>
+    <string name="widget_setup_all">All notes</string>
+    <string name="widget_setup_pinned">Pinned notes</string>
+    <string name="widget_setup_labels">LABELS</string>
+    <string name="widget_setup_no_labels">Add a label in Notes to show only its notes here</string>
+    <string name="widget_setup_waiting">Open Notes once, and your labels show here</string>
+    <plurals name="widget_setup_count">
+        <item quantity="one">%d note</item>
+        <item quantity="other">%d notes</item>
+    </plurals>
 
     <string name="widget_take_note">Take a note</string>
     <string name="widget_new_list">New list</string>

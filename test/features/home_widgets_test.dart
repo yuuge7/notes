@@ -14,11 +14,14 @@ import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/data/device/home_widgets.dart';
 import 'package:notes/data/home_widgets/home_widget_sync.dart';
 import 'package:notes/data/providers.dart';
+import 'package:notes/data/repository/label_repository.dart';
 import 'package:notes/data/repository/note_repository.dart';
 import 'package:notes/data/repository/reminder_repository.dart';
 import 'package:notes/data/seed.dart';
+import 'package:notes/domain/model/label.dart';
 import 'package:notes/domain/model/note.dart';
 import 'package:notes/features/editor/editor_screen.dart';
+import 'package:notes/features/notes/notes_screen.dart';
 
 import '../support/fake_document_picker.dart';
 import '../support/fake_home_widgets.dart';
@@ -103,10 +106,22 @@ void main() {
                 .firstWhere((note) => note.title == title),
       ))!;
 
-  List<String> titlesIn(Map<String, Object?> snapshot) => [
-    for (final note in snapshot['notes']! as List)
-      (note as Map<String, Object?>)['title']! as String,
-  ];
+  Map<String, Object?> feedIn(Map<String, Object?> snapshot, String key) => [
+    for (final feed in snapshot['feeds']! as List) feed as Map<String, Object?>,
+  ].firstWhere((feed) => feed['feed'] == key);
+
+  /// The titles a widget set to [feed] shows, in order.
+  Future<Label> labelNamed(String name) async => (await LabelRepository(
+    db.noteDao,
+  ).all()).firstWhere((label) => label.name == name);
+
+  List<String> titlesIn(Map<String, Object?> snapshot, {String feed = 'all'}) {
+    final notes = snapshot['notes']! as Map<String, Object?>;
+    return [
+      for (final id in feedIn(snapshot, feed)['notes']! as List)
+        (notes[id]! as Map<String, Object?>)['title']! as String,
+    ];
+  }
 
   group('what the widget is handed', () {
     late HomeWidgetSync sync;
@@ -130,8 +145,65 @@ void main() {
 
       final snapshot = widgets.published.single;
       final seeded = await db.noteDao.loadShelf(Shelf.active);
-      expect(snapshot['count'], seeded.length);
+      expect(feedIn(snapshot, 'all')['count'], seeded.length);
       expect(titlesIn(snapshot).first, 'Flat viewing — Aurel Vlaicu 12');
+    });
+
+    test('the pinned notes and each label, for widgets set to them', () async {
+      await landed();
+
+      final snapshot = widgets.published.single;
+      final seeded = await db.noteDao.loadShelf(Shelf.active);
+      final admin = await labelNamed('Admin');
+      expect(titlesIn(snapshot, feed: 'pinned'), [
+        for (final note in seeded.where((note) => note.pinned)) note.title,
+      ]);
+      expect(feedIn(snapshot, 'label:${admin.id}')['title'], 'Admin');
+      expect(titlesIn(snapshot, feed: 'label:${admin.id}'), [
+        for (final note in seeded.where(
+          (note) => note.labels.any((label) => label.id == admin.id),
+        ))
+          note.title,
+      ]);
+    });
+
+    test('a note pinned joins the pinned widget', () async {
+      await landed();
+      final bike = (await db.noteDao.loadShelf(Shelf.active))
+          .firstWhere((note) => note.title == 'Bike');
+
+      await NoteRepository(db.noteDao).setPinned(bike.id, pinned: true);
+      await landed();
+
+      expect(
+        titlesIn(widgets.published.first, feed: 'pinned'),
+        isNot(contains('Bike')),
+      );
+      expect(
+        titlesIn(widgets.published.last, feed: 'pinned'),
+        contains('Bike'),
+      );
+    });
+
+    test('a label renamed or deleted changes its feed', () async {
+      await landed();
+      final labels = LabelRepository(db.noteDao);
+      final admin = await labelNamed('Admin');
+
+      await labels.rename(admin.id, 'Paperwork');
+      await landed();
+      expect(
+        feedIn(widgets.published.last, 'label:${admin.id}')['title'],
+        'Paperwork',
+      );
+
+      await labels.delete(admin.id);
+      await landed();
+      final feeds = [
+        for (final feed in widgets.published.last['feeds']! as List)
+          (feed as Map<String, Object?>)['feed'],
+      ];
+      expect(feeds, isNot(contains('label:${admin.id}')));
     });
 
     test('a note archived leaves the widget', () async {
@@ -146,8 +218,8 @@ void main() {
       expect(titlesIn(widgets.published.first), contains('Bike'));
       expect(titlesIn(widgets.published.last), isNot(contains('Bike')));
       expect(
-        widgets.published.last['count'],
-        (widgets.published.first['count']! as int) - 1,
+        feedIn(widgets.published.last, 'all')['count'],
+        (feedIn(widgets.published.first, 'all')['count']! as int) - 1,
       );
     });
 
@@ -211,6 +283,106 @@ void main() {
       await unmount(tester);
     });
 
+    /// Types [title] into the note open in the editor and closes it.
+    Future<Note> write(WidgetTester tester, String title) async {
+      await tester.enterText(find.byType(TextField).first, title);
+      await settle(tester);
+      await tester.tap(find.byTooltip('Back'));
+      await settle(tester);
+      return noteTitled(tester, title);
+    }
+
+    testWidgets('on + of a label widget starts a note wearing it', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      final admin = (await tester.runAsync(() => labelNamed('Admin')))!;
+
+      widgets.tap(NewNote(feed: LabelFeed(admin.id)));
+      await settle(tester);
+      expect(
+        find.descendant(
+          of: find.byType(EditorScreen),
+          matching: find.text('Admin'),
+        ),
+        findsOneWidget,
+      );
+      final note = await write(tester, 'Tax return');
+
+      expect([for (final label in note.labels) label.name], ['Admin']);
+      expect(note.pinned, isFalse);
+      await unmount(tester);
+    });
+
+    testWidgets('on + of the pinned widget starts a pinned note', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+
+      widgets.tap(const NewNote(feed: PinnedFeed()));
+      await settle(tester);
+      expect(find.byTooltip('Unpin'), findsOneWidget);
+      final note = await write(tester, 'Door code');
+
+      expect(note.pinned, isTrue);
+      expect(note.labels, isEmpty);
+      await unmount(tester);
+    });
+
+    testWidgets('on + of a widget whose label is gone starts a plain note', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+
+      widgets.tap(const NewNote(feed: LabelFeed('gone')));
+      await settle(tester);
+      final note = await write(tester, 'Loose thought');
+
+      expect(note.labels, isEmpty);
+      await unmount(tester);
+    });
+
+    testWidgets('on the heading of a label widget shows its page', (
+      tester,
+    ) async {
+      addTearDown(() => appRouter.go('/'));
+      await tester.runAsync(() => seedIfEmpty(db.noteDao));
+      final groceries = await noteTitled(tester, 'Groceries');
+      final admin = (await tester.runAsync(() => labelNamed('Admin')))!;
+      // A note left open in the editor closes for the label's page.
+      widgets.launchAction = OpenNote(groceries.id);
+      await pumpApp(tester);
+      expect(find.byType(EditorScreen), findsOneWidget);
+
+      widgets.tap(ShowFeed(LabelFeed(admin.id)));
+      await settle(tester);
+
+      expect(find.byType(EditorScreen), findsNothing);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is NotesScreen && widget.labelId == admin.id,
+        ),
+        findsOneWidget,
+      );
+      await unmount(tester);
+    });
+
+    testWidgets(
+      'on the heading of the pinned widget leaves the app as it was',
+      (tester) async {
+        await tester.runAsync(() => seedIfEmpty(db.noteDao));
+        final groceries = await noteTitled(tester, 'Groceries');
+        widgets.launchAction = OpenNote(groceries.id);
+        await pumpApp(tester);
+
+        widgets.tap(const ShowFeed(PinnedFeed()));
+        await settle(tester);
+
+        expect(find.byType(EditorScreen), findsOneWidget);
+        await unmount(tester);
+      },
+    );
+
     testWidgets('on a note deleted since says so', (tester) async {
       widgets.launchAction = const OpenNote('gone');
 
@@ -219,6 +391,41 @@ void main() {
       expect(find.byType(EditorScreen), findsNothing);
       expect(find.text('That note has been deleted'), findsOneWidget);
       await unmount(tester);
+    });
+  });
+
+  group('an action as Android sends it', () {
+    test('a note for the feed the widget shows', () {
+      expect(
+        WidgetAction.decode({'action': 'newNote', 'feed': 'label:abc'}),
+        const NewNote(feed: LabelFeed('abc')),
+      );
+      expect(
+        WidgetAction.decode({'action': 'newNote', 'feed': 'pinned'}),
+        const NewNote(feed: PinnedFeed()),
+      );
+      // The new note widget, and a widget whose label is gone, send none.
+      expect(WidgetAction.decode({'action': 'newNote'}), const NewNote());
+    });
+
+    test('the page a widget mirrors, when the feed is one it knows', () {
+      expect(
+        WidgetAction.decode({'action': 'showFeed', 'feed': 'label:abc'}),
+        const ShowFeed(LabelFeed('abc')),
+      );
+      expect(
+        WidgetAction.decode({'action': 'showFeed', 'feed': 'all'}),
+        const ShowFeed(AllFeed()),
+      );
+      expect(WidgetAction.decode({'action': 'showFeed'}), isNull);
+      expect(
+        WidgetAction.decode({'action': 'showFeed', 'feed': 'label:'}),
+        isNull,
+      );
+      expect(
+        WidgetAction.decode({'action': 'showFeed', 'feed': 'recent'}),
+        isNull,
+      );
     });
   });
 
@@ -238,20 +445,61 @@ void main() {
       await settle(tester);
     }
 
+    Future<void> tapAction(WidgetTester tester, String label) async {
+      await tester.scrollUntilVisible(
+        find.text(label),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text(label));
+      // Long enough for a sheet to finish rising.
+      await settle(tester, turns: 5);
+    }
+
     testWidgets('places either widget on the home screen', (tester) async {
       await pumpSettings(tester);
 
-      for (final label in ['Add the notes widget', 'Add the new note widget']) {
-        await tester.scrollUntilVisible(
-          find.text(label),
-          200,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.tap(find.text(label));
-        await settle(tester, turns: 2);
-      }
+      await tapAction(tester, 'Add the notes widget');
+      await tester.tap(find.text('All notes'));
+      await settle(tester, turns: 2);
+      await tapAction(tester, 'Add the new note widget');
 
-      expect(widgets.pinned, [HomeWidget.notes, HomeWidget.capture]);
+      expect(widgets.pinned, [
+        (HomeWidget.notes, const AllFeed()),
+        (HomeWidget.capture, const AllFeed()),
+      ]);
+      await unmount(tester);
+    });
+
+    testWidgets('asks what the notes widget shows before placing it', (
+      tester,
+    ) async {
+      await pumpSettings(tester);
+      final admin = await tester.runAsync(() => labelNamed('Admin'));
+
+      // Dismissed, the sheet places nothing.
+      await tapAction(tester, 'Add the notes widget');
+      expect(find.text('SHOW ON THIS WIDGET'), findsOneWidget);
+      await tester.tapAt(const Offset(10, 10));
+      await settle(tester, turns: 4);
+      expect(widgets.pinned, isEmpty);
+
+      await tapAction(tester, 'Add the notes widget');
+      await tester.tap(find.text('Pinned notes'));
+      await settle(tester, turns: 4);
+      await tapAction(tester, 'Add the notes widget');
+      await tester.scrollUntilVisible(
+        find.text('Admin'),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.text('Admin'));
+      await settle(tester, turns: 4);
+
+      expect(widgets.pinned, [
+        (HomeWidget.notes, const PinnedFeed()),
+        (HomeWidget.notes, LabelFeed(admin!.id)),
+      ]);
       await unmount(tester);
     });
 

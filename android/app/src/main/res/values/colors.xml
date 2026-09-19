@@ -25,6 +25,9 @@
     <color name="tint_plum">#F5EDF7</color>
     <color name="spine_clay">#8A5A44</color>
     <color name="tint_clay">#F6EEE9</color>
+    <!-- Behind a sheet, as behind the app's own: Flutter's modal barrier,
+         black at 54%, in both themes. -->
+    <color name="scrim">#8A000000</color>
     <!-- The icon: a page of paper on verdigris, with a vermilion spine. -->
     <color name="icon_background">#2E7B78</color>
     <color name="icon_paper">#F4F5F3</color>

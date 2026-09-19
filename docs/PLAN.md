@@ -299,7 +299,8 @@ media/thumbs/<attachmentId>.jpg   (added in milestone 6: an import need not rema
   app's own theme choice handed to Android through `UiModeManager.setApplicationNightMode`.
 - `dataExtractionRules` keep the database, files, and preferences out of cloud backup and device transfer.
 - Home screen widgets (milestone 8), drawn with `RemoteViews` from a JSON snapshot the app writes, so they
-  show notes with the app closed. Their colours are copies of the theme tokens in `res/values*/colors.xml`,
+  show notes with the app closed. Each notes widget shows one feed, chosen as it is placed: every note, the
+  pinned ones, or one label's. Their colours are copies of the theme tokens in `res/values*/colors.xml`,
   kept equal by a test; their faces are the system's serif, mono, and sans, since a launcher does not load
   an app's font resources.
 - Release: R8 keep rules for the notifications plugin's Gson storage, `res/raw/keep.xml` for the notification
@@ -919,3 +920,57 @@ Carried forward:
   from the app, in which case settings leaves the section out.
 - The new note widget on the emulator's home screen was left three cells wide; the launcher would not take
   the resize back to four.
+
+### After milestone 8 — a widget for the pinned notes, or one label (2026-09-19)
+
+Asked for after milestone 8: a notes widget that shows only the pinned notes, or only one label's. Covered by
+the suite (517 tests) and checked on the Android 17 emulator on a release build.
+
+- **Each notes widget shows one feed**: every note (as before), the pinned notes, or one label's notes, in
+  grid order. The heading is the feed's name with its count; the + starts a note that lands on the widget, pinned
+  from the pinned widget and wearing the label from a label's; the heading of a label's widget opens that
+  label's page, closing a note left open over it; an empty feed invites the note it would show.
+- **Choosing.** Placing the widget from the launcher's list opens a sheet over the home screen: All notes,
+  Pinned notes, then the labels, each with its count and its first notes in the reading face. Backing out takes
+  the widget off again. The widget's own Settings (long press) opens the same sheet with the current choice
+  marked. Settings → Add the notes widget asks the same in the app first, since a launcher placing a widget
+  for an app skips the setup.
+- **A label deleted** under a widget leaves it saying so, and a tap opens the sheet. A label renamed renames
+  the widget. Widgets placed before this keep showing every note.
+- **How it fits together.** The snapshot (version 2) holds every feed, each naming its notes by id over one
+  set of notes, so a note on three feeds crosses once. `loadWidgetShelves` reads the grid, the pinned notes,
+  and every label's first 20 (the pinned notes are the grid's first rows) and hydrates their union in one
+  pass. Kotlin redraws the widgets on its io thread, off the thread Flutter shares. Android keeps each widget's choice in its
+  own preferences, since the widget draws with the app closed. The setup sheet is a native activity: it draws
+  with the app's own faces, read from Flutter's copies in the APK, and the tokens in `res/values*`.
+- On the emulator: placed from the launcher's list (backing out removed it; choosing Reading showed its two
+  notes), from settings with a label (the launcher's dialog, then Admin with its count), and changed from the
+  widget's settings between all, pinned, and four labels; + on the pinned widget made a pinned note and on a
+  label's a note wearing it, each showing on its widget on return; the heading of a label's widget opened its
+  page, also with a note open; a card opened its note; a label made, chosen (its empty state), then deleted
+  showed the deleted state, and its tap opened the sheet; the sheet in the light and dark themes and at 200%
+  text. The accessibility tree gives each choice as one radio button with its name, count, and first notes;
+  TalkBack itself was not run over the sheet.
+
+Decisions and findings:
+- **The widget heading never changed after it was first drawn, on Android 17.** A list filled by a
+  `RemoteViewsService` makes the whole widget "legacy": the system only tells the launcher to fetch an update
+  (`Trying to notify widget update deferred`), and the Pixel launcher drops it (`Widget update called, when
+  the widget no longer exists`). The cards refreshed through the service, the heading kept its first name and
+  count. This was already so in milestone 8: the count never moved after an edit. From Android 12 the widget
+  now hands its cards over as `RemoteCollectionItems` with the rest of it; the service stays for Android 7 to
+  11. An app update redraws from scratch, which is why it looked right after each install.
+- The widgets' own intents are kept apart by request code, one pair per widget, rather than by intent data:
+  FlutterActivity reads intent data as a deep link.
+- The setup activity is exported with the `APPWIDGET_CONFIGURE` filter, since some launchers start it
+  themselves; it acts only on a notes widget of this app.
+- A label deleted meanwhile goes on nothing: `LabelRepository.setOnNotes` checks it is still there. A note
+  from a widget whose label is gone is a plain one, and so is a note begun on a label's page as the label is
+  deleted, which before kept a hidden link that came back if the delete was undone.
+- At 200% text, the finish gate's step for the export sheet had stopped tapping it (the row sat past the
+  screen's edge), so that sheet went unchecked at 200%; both settings steps now bring their row fully on
+  screen first. The new settings sheet has its gate entry.
+
+Carried forward:
+- Android 7 to 11 take the service path for the cards, untested here.
+- Only the Pixel launcher was tried, and only its dialog for placing from the app, which skips the setup.

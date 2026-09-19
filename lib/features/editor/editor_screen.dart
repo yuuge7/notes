@@ -53,6 +53,7 @@ class EditorScreen extends ConsumerStatefulWidget {
     this.noteId,
     this.readOnly = false,
     this.startAsChecklist = false,
+    this.startPinned = false,
     this.labelId,
     this.initialPhotos = const [],
     super.key,
@@ -68,6 +69,10 @@ class EditorScreen extends ConsumerStatefulWidget {
   /// Whether a new note starts as a checklist. Ignored when [noteId] is set;
   /// an existing note keeps its own type.
   final bool startAsChecklist;
+
+  /// Whether a new note starts pinned, as when it is begun from the pinned
+  /// notes widget. Ignored when [noteId] is set.
+  final bool startPinned;
 
   /// A label a new note wears from the start, as when it is written from that
   /// label's page. Ignored when [noteId] is set.
@@ -114,7 +119,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
 
   // Choices made before the note exists, applied when it is created.
   Pigment _draftPigment = Pigment.graphite;
-  bool _draftPinned = false;
+  late bool _draftPinned = widget.startPinned;
 
   /// Photos being compressed onto the note right now.
   int _adding = 0;

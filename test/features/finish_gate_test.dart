@@ -135,6 +135,8 @@ void main() {
           )
           .first,
     );
+    // At 200% text a row can stop half past the edge.
+    await tester.ensureVisible(find.text(text).first);
     await settle(tester, turns: 2);
   }
 
@@ -198,14 +200,14 @@ void main() {
     ),
     'labels': ('/labels', null),
     'settings': ('/settings', null),
+    'the widget sheet': (
+      '/settings',
+      (t) => tapText(t, 'Add the notes widget'),
+    ),
     'the export sheet': (
       '/settings',
       (t) async {
-        await t.scrollUntilVisible(
-          find.text('Export notes'),
-          200,
-          scrollable: find.byType(Scrollable).first,
-        );
+        await reveal(t, 'Export notes');
         await t.tap(find.text('Export notes'));
         for (var i = 0; i < 100 && find.text('Share').evaluate().isEmpty; i++) {
           await settle(t, turns: 1);

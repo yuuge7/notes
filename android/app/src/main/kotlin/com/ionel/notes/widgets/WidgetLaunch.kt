@@ -1,6 +1,7 @@
 package com.ionel.notes.widgets
 
 import android.app.PendingIntent
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -14,12 +15,21 @@ object WidgetLaunch {
     private const val ACTION = "com.ionel.notes.WIDGET"
     private const val EXTRA_ACTION = "widgetAction"
     private const val EXTRA_NOTE = "noteId"
+    private const val EXTRA_FEED = "feed"
 
     const val NEW_NOTE = "newNote"
     const val NEW_LIST = "newList"
     const val ADD_PHOTOS = "addPhotos"
     const val TAKE_PHOTO = "takePhoto"
     private const val OPEN = "open"
+    private const val SHOW_FEED = "showFeed"
+
+    /**
+     * Where the request codes of each notes widget's own intents start. Two
+     * per widget, past the fixed codes above; request codes rather than intent
+     * data keep them apart, since FlutterActivity reads data as a deep link.
+     */
+    private const val WIDGET_CODES = 100
 
     /** Starts [action] in the app. Each action has a request code of its own, so their intents stay apart. */
     fun pending(context: Context, action: String): PendingIntent {
@@ -37,6 +47,35 @@ object WidgetLaunch {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
     }
+
+    /**
+     * The + on notes widget [widgetId]: a note for its [feed], which the app
+     * pins or labels to match. Null for a feed that is gone.
+     */
+    fun newNote(context: Context, widgetId: Int, feed: String?) =
+        forFeed(context, WIDGET_CODES + widgetId * 2, NEW_NOTE, feed)
+
+    /** The heading of notes widget [widgetId]: the app, at the page its [feed] mirrors. */
+    fun showFeed(context: Context, widgetId: Int, feed: String) =
+        forFeed(context, WIDGET_CODES + widgetId * 2 + 1, SHOW_FEED, feed)
+
+    private fun forFeed(context: Context, code: Int, action: String, feed: String?): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            code,
+            intent(context).putExtra(EXTRA_ACTION, action).putExtra(EXTRA_FEED, feed),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+    /** Opens the settings of notes widget [widgetId], to choose what it shows. */
+    fun setup(context: Context, widgetId: Int): PendingIntent = PendingIntent.getActivity(
+        context,
+        widgetId,
+        Intent(context, NotesWidgetSetup::class.java)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 
     /** Opens the app as the launcher icon does. */
     fun app(context: Context): PendingIntent = PendingIntent.getActivity(
@@ -73,8 +112,11 @@ object WidgetLaunch {
         if (intent?.action != ACTION) return null
         if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return null
         val action = intent.getStringExtra(EXTRA_ACTION) ?: return null
-        val noteId = intent.getStringExtra(EXTRA_NOTE)
-        return if (noteId == null) mapOf("action" to action) else mapOf("action" to action, "noteId" to noteId)
+        return buildMap {
+            put("action", action)
+            intent.getStringExtra(EXTRA_NOTE)?.let { put("noteId", it) }
+            intent.getStringExtra(EXTRA_FEED)?.let { put("feed", it) }
+        }
     }
 
     private fun intent(context: Context) = Intent(context, MainActivity::class.java)

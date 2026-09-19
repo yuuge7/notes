@@ -21,12 +21,34 @@ data class WidgetNote(
 )
 
 /**
- * The notes the widgets show, as the app last handed them over.
+ * One set of notes a notes widget can show: all of them, the pinned ones, or
+ * one label's. The app works out every word of it; see widget_snapshot.dart.
+ */
+data class WidgetFeed(
+    val key: String,
+    /** How the widget's settings offer it. */
+    val name: String,
+    /** The widget's heading. */
+    val title: String,
+    val count: Int,
+    val notes: List<WidgetNote>,
+    val preview: String,
+    val empty: String,
+) {
+    val isLabel get() = key.startsWith(WidgetFeeds.LABEL_PREFIX)
+}
+
+/**
+ * The notes the widgets show, as the app last handed them over: every feed a
+ * widget can be set to.
  *
  * Kept in a file, so the widgets draw without the app running: after a
  * reboot, or when the launcher asks for the list again hours later.
  */
-data class WidgetSnapshot(val count: Int, val notes: List<WidgetNote>) {
+data class WidgetSnapshot(val feeds: List<WidgetFeed>) {
+    /** The feed kept under [key], or null for a label deleted since it was chosen. */
+    fun feed(key: String) = feeds.firstOrNull { it.key == key }
+
     companion object {
         /** Out of backups, like the database it comes from. */
         private fun file(context: Context) = File(context.noBackupFilesDir, "widgets/notes.json")
@@ -60,33 +82,55 @@ data class WidgetSnapshot(val count: Int, val notes: List<WidgetNote>) {
             }
         }
 
+        /** Each feed names its notes by id, so a note on several is written once. */
         private fun parse(json: JSONObject): WidgetSnapshot {
-            val notes = json.getJSONArray("notes")
+            check(json.getInt("version") == VERSION) { "A snapshot from another version" }
+            val feeds = json.getJSONArray("feeds")
+            val notes = json.getJSONObject("notes")
+            val parsed = mutableMapOf<String, WidgetNote>()
             return WidgetSnapshot(
-                count = json.optInt("count", notes.length()),
-                notes = List(notes.length()) { index ->
-                    val note = notes.getJSONObject(index)
-                    val items = note.optJSONArray("items")
-                    WidgetNote(
-                        id = note.getString("id"),
-                        pigment = note.optString("pigment", "graphite"),
-                        title = note.optString("title"),
-                        body = note.optString("body"),
-                        items = List(items?.length() ?: 0) { i ->
-                            val item = items!!.getJSONObject(i)
-                            WidgetItem(
-                                text = item.optString("text"),
-                                checked = item.optBoolean("checked"),
-                                indent = item.optInt("indent"),
-                            )
+                List(feeds.length()) { index ->
+                    val feed = feeds.getJSONObject(index)
+                    val ids = feed.getJSONArray("notes")
+                    WidgetFeed(
+                        key = feed.getString("feed"),
+                        name = feed.getString("name"),
+                        title = feed.getString("title"),
+                        count = feed.getInt("count"),
+                        notes = List(ids.length()) { i ->
+                            val id = ids.getString(i)
+                            parsed.getOrPut(id) { note(notes.getJSONObject(id)) }
                         },
-                        more = note.optInt("more"),
-                        meta = note.optString("meta"),
-                        empty = note.optBoolean("empty"),
-                        description = note.optString("description"),
+                        preview = feed.optString("preview"),
+                        empty = feed.optString("empty"),
                     )
                 },
             )
         }
+
+        private fun note(note: JSONObject): WidgetNote {
+            val items = note.optJSONArray("items")
+            return WidgetNote(
+                id = note.getString("id"),
+                pigment = note.optString("pigment", "graphite"),
+                title = note.optString("title"),
+                body = note.optString("body"),
+                items = List(items?.length() ?: 0) { i ->
+                    val item = items!!.getJSONObject(i)
+                    WidgetItem(
+                        text = item.optString("text"),
+                        checked = item.optBoolean("checked"),
+                        indent = item.optInt("indent"),
+                    )
+                },
+                more = note.optInt("more"),
+                meta = note.optString("meta"),
+                empty = note.optBoolean("empty"),
+                description = note.optString("description"),
+            )
+        }
+
+        /** The snapshot's shape, which widget_snapshot.dart writes. */
+        private const val VERSION = 2
     }
 }

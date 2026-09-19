@@ -145,7 +145,10 @@ class _OwnWidgets implements HomeWidgets {
   Future<bool> canPin() async => false;
 
   @override
-  Future<void> pin(HomeWidget widget) async {}
+  Future<void> pin(
+    HomeWidget widget, {
+    WidgetFeed feed = const AllFeed(),
+  }) async {}
 }
 
 /// Keeps the theme chosen in the phone's own copy of the app: this database

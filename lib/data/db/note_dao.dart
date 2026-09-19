@@ -16,6 +16,14 @@ part 'note_dao.g.dart';
 /// Which shelf of notes a query targets.
 enum Shelf { active, archived, trash }
 
+/// Every set of notes a home screen widget can be showing, each as the first
+/// notes of its page: the grid, the pinned notes, and each label's page.
+typedef WidgetShelves = ({
+  NotePage all,
+  NotePage pinned,
+  List<({Label label, NotePage page})> labels,
+});
+
 int _now() => DateTime.now().millisecondsSinceEpoch;
 
 @DriftAccessor(tables: [Notes, ChecklistItems, Labels, NoteLabels, Attachments])
@@ -84,14 +92,18 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
   Stream<NotePage> watchShelfPage(Shelf shelf, int limit) =>
       reloadOnChange(() => loadShelfPage(shelf, limit));
 
-  Future<NotePage> loadShelfPage(Shelf shelf, int limit) async {
+  Future<NotePage> loadShelfPage(Shelf shelf, int limit) async =>
+      _page(_shelfQuery(shelf), limit, await _count(_onShelf(notes, shelf)));
+
+  /// How many notes match [where].
+  Future<int> _count(Expression<bool> where) async {
     final count = notes.id.count();
-    final total =
+    final row =
         await (selectOnly(notes)
               ..addColumns([count])
-              ..where(_onShelf(notes, shelf)))
+              ..where(where))
             .getSingle();
-    return _page(_shelfQuery(shelf), limit, total.read(count) ?? 0);
+    return row.read(count) ?? 0;
   }
 
   /// Loads one row past [limit], to know where the next page starts.
@@ -503,15 +515,11 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
   Stream<NotePage> watchLabelShelfPage(String labelId, int limit) =>
       reloadOnChange(() => loadLabelShelfPage(labelId, limit));
 
-  Future<NotePage> loadLabelShelfPage(String labelId, int limit) async {
-    final count = notes.id.count();
-    final total =
-        await (selectOnly(notes)
-              ..addColumns([count])
-              ..where(_wearing(notes, labelId)))
-            .getSingle();
-    return _page(_labelShelfQuery(labelId), limit, total.read(count) ?? 0);
-  }
+  Future<NotePage> loadLabelShelfPage(String labelId, int limit) async => _page(
+    _labelShelfQuery(labelId),
+    limit,
+    await _count(_wearing(notes, labelId)),
+  );
 
   Expression<bool> _wearing($NotesTable t, String labelId) {
     final wearing = selectOnly(noteLabels)
@@ -532,6 +540,55 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
       (t) => OrderingTerm(expression: t.pinned, mode: OrderingMode.desc),
       (t) => OrderingTerm(expression: t.sortKey),
     ]);
+
+  /// The first [limit] notes of every widget shelf, reloaded after every
+  /// change.
+  Stream<WidgetShelves> watchWidgetShelves(int limit) =>
+      reloadOnChange(() => loadWidgetShelves(limit));
+
+  /// Loads the widget shelves together. A note on several of them, pinned
+  /// and wearing two labels, is read once. The pinned notes are the grid's
+  /// first rows: the grid puts them first, to the same limit.
+  Future<WidgetShelves> loadWidgetShelves(int limit) async {
+    final grid = await (_shelfQuery(Shelf.active)..limit(limit)).get();
+    final pinned = [
+      for (final row in grid)
+        if (row.pinned) row,
+    ];
+    Future<({Label label, List<NoteRow> rows, int total})> shelf(
+      Label label,
+    ) async => (
+      label: label,
+      rows: await (_labelShelfQuery(label.id)..limit(limit)).get(),
+      total: await _count(_wearing(notes, label.id)),
+    );
+    final labelShelves = await Future.wait((await allLabels()).map(shelf));
+
+    final rows = {
+      for (final row in [
+        ...grid,
+        for (final shelf in labelShelves) ...shelf.rows,
+      ])
+        row.id: row,
+    };
+    final hydrated = {
+      for (final note in await hydrate(rows.values.toList())) note.id: note,
+    };
+    NotePage page(List<NoteRow> rows, int total) => NotePage(
+      notes: [for (final row in rows) hydrated[row.id]!],
+      total: total,
+    );
+
+    final active = _onShelf(notes, Shelf.active);
+    return (
+      all: page(grid, await _count(active)),
+      pinned: page(pinned, await _count(active & notes.pinned.equals(true))),
+      labels: [
+        for (final shelf in labelShelves)
+          (label: shelf.label, page: page(shelf.rows, shelf.total)),
+      ],
+    );
+  }
 
   /// How many of [noteIds] wear each label, by label id.
   Stream<Map<String, int>> watchLabelUsage(List<String> noteIds) =>

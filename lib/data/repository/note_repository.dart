@@ -23,6 +23,10 @@ class NoteRepository {
   Stream<NotePage> watchPage(Shelf shelf, int limit) =>
       _dao.watchShelfPage(shelf, limit);
 
+  /// The first [limit] notes of each shelf a home screen widget can show.
+  Stream<WidgetShelves> watchWidgetShelves(int limit) =>
+      _dao.watchWidgetShelves(limit);
+
   Stream<Note?> watchNote(String id) => _dao.watchNote(id);
 
   Future<Note?> load(String id) => _dao.loadNote(id);

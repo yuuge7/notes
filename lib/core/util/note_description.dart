@@ -17,10 +17,7 @@ String describeNote(Note note, {String? reminder}) {
       '${note.checkedItems.length} of ${note.items.length} done'
     else if (note.body.trim().isNotEmpty)
       _sentence(note.body),
-    if (note.attachments.length == 1)
-      '1 image'
-    else if (note.attachments.length > 1)
-      '${note.attachments.length} images',
+    if (note.attachments.isNotEmpty) imageCount(note.attachments.length),
     if (note.labels.isNotEmpty)
       'Labels: ${note.labels.map((l) => l.name).join(', ')}',
     ?reminder,
@@ -28,6 +25,9 @@ String describeNote(Note note, {String? reminder}) {
   ];
   return parts.join('. ');
 }
+
+/// A note's images counted, as its card and the home screen widget put it.
+String imageCount(int images) => images == 1 ? '1 image' : '$images images';
 
 /// Trims closing punctuation so joining parts with ". " never reads out a
 /// doubled stop, as in "down to the metal.. Moss".

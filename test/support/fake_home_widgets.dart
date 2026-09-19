@@ -15,8 +15,9 @@ class FakeHomeWidgets implements HomeWidgets {
   /// Every snapshot published, in order, decoded.
   final published = <Map<String, Object?>>[];
 
-  /// Widgets the app asked the launcher to place, in order.
-  final pinned = <HomeWidget>[];
+  /// Widgets the app asked the launcher to place, in order, with the feed a
+  /// notes widget was to show.
+  final pinned = <(HomeWidget, WidgetFeed)>[];
 
   final _actions = StreamController<WidgetAction>.broadcast();
 
@@ -41,5 +42,8 @@ class FakeHomeWidgets implements HomeWidgets {
   Future<bool> canPin() async => pinnable;
 
   @override
-  Future<void> pin(HomeWidget widget) async => pinned.add(widget);
+  Future<void> pin(
+    HomeWidget widget, {
+    WidgetFeed feed = const AllFeed(),
+  }) async => pinned.add((widget, feed));
 }

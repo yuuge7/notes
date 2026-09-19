@@ -31,13 +31,13 @@ class HomeWidgetsChannel(private val context: Context, messenger: BinaryMessenge
                         result.error("snapshot", "No snapshot", null)
                         return@setMethodCallHandler
                     }
+                    // Drawn off the main thread, which Flutter shares; from
+                    // Android 12 each widget's cards are built with it.
                     io.execute {
                         try {
                             WidgetSnapshot.write(context, snapshot)
-                            main.post {
-                                NotesWidget.refresh(context)
-                                result.success(null)
-                            }
+                            NotesWidget.refresh(context)
+                            main.post { result.success(null) }
                         } catch (e: Exception) {
                             main.post { result.error("io", e.message, null) }
                         }
@@ -52,9 +52,10 @@ class HomeWidgetsChannel(private val context: Context, messenger: BinaryMessenge
                         AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported,
                 )
                 "pin" -> {
-                    val provider = when (call.argument<String>("widget")) {
-                        "notes" -> NotesWidget::class.java
-                        "capture" -> CaptureWidget::class.java
+                    val feed = call.argument<String>("feed") ?: WidgetFeeds.ALL
+                    val (provider, placed) = when (call.argument<String>("widget")) {
+                        "notes" -> NotesWidget::class.java to NotesWidget.placed(context, feed)
+                        "capture" -> CaptureWidget::class.java to null
                         else -> {
                             result.error("widget", "Unknown widget", null)
                             return@setMethodCallHandler
@@ -63,7 +64,7 @@ class HomeWidgetsChannel(private val context: Context, messenger: BinaryMessenge
                     result.success(
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
                             AppWidgetManager.getInstance(context)
-                                .requestPinAppWidget(ComponentName(context, provider), null, null),
+                                .requestPinAppWidget(ComponentName(context, provider), null, placed),
                     )
                 }
                 else -> result.notImplemented()

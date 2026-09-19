@@ -9,4 +9,16 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@color/ground</item>
     </style>
+    <!-- What a notes widget's settings sheet is drawn over; see WidgetSetupTheme. -->
+    <style name="WidgetSetupBase" parent="@android:style/Theme.Material.Light.NoActionBar" />
+    <!-- A notes widget's settings: a sheet over the home screen. The sheet
+         and the scrim behind it animate in; the window itself does not. -->
+    <style name="WidgetSetupTheme" parent="WidgetSetupBase">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorControlHighlight">@color/hairline</item>
+        <item name="android:navigationBarColor">@color/card</item>
+    </style>
 </resources>

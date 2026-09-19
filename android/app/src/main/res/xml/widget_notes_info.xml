@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The notes widget: 3 by 3 cells to begin with, as small as 2 by 2. It
-     redraws when the app hands over new notes, never on a timer. -->
+     redraws when the app hands over new notes, never on a timer. Placing one
+     asks what it shows, and its settings can change that later. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="com.ionel.notes.widgets.NotesWidgetSetup"
     android:description="@string/widget_notes_description"
     android:initialLayout="@layout/widget_notes"
     android:minWidth="180dp"
@@ -13,4 +15,5 @@
     android:targetCellWidth="3"
     android:targetCellHeight="3"
     android:updatePeriodMillis="0"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />

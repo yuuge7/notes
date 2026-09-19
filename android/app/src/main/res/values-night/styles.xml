@@ -9,4 +9,6 @@
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">@color/ground</item>
     </style>
+    <!-- What a notes widget's settings sheet is drawn over; see WidgetSetupTheme. -->
+    <style name="WidgetSetupBase" parent="@android:style/Theme.Material.NoActionBar" />
 </resources>

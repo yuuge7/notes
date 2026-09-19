@@ -59,6 +59,8 @@ Future<void> openEditor(
   String? noteId,
   bool readOnly = false,
   bool startAsChecklist = false,
+  bool startPinned = false,
+  String? labelId,
   List<File> initialPhotos = const [],
 }) async {
   final outcome = await Navigator.of(context).push<EditorOutcome>(
@@ -67,6 +69,8 @@ Future<void> openEditor(
         noteId: noteId,
         readOnly: readOnly,
         startAsChecklist: startAsChecklist,
+        startPinned: startPinned,
+        labelId: labelId,
         initialPhotos: initialPhotos,
       ),
     ),

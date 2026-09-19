@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/data/device/home_widgets.dart';
 import 'package:notes/data/home_widgets/widget_snapshot.dart';
 import 'package:notes/data/repository/note_repository.dart';
@@ -9,8 +8,9 @@ import 'package:notes/data/repository/note_repository.dart';
 /// Keeps the home screen widgets showing the notes as they are.
 ///
 /// Like reminders, nothing that changes a note tells the widgets: this
-/// watches the notes and hands Android a new snapshot whenever what the
-/// widget shows would change, from any path that writes a note.
+/// watches the notes and hands Android a new snapshot whenever what any
+/// widget could show would change, from any path that writes a note or a
+/// label.
 class HomeWidgetSync {
   HomeWidgetSync(this._notes, this._widgets);
 
@@ -25,7 +25,7 @@ class HomeWidgetSync {
   /// widget placed before the app ever ran fills in when it first opens.
   void start() {
     _subscription ??= _notes
-        .watchPage(Shelf.active, widgetNoteLimit)
+        .watchWidgetShelves(widgetNoteLimit)
         .map(encodeWidgetSnapshot)
         .listen((snapshot) => unawaited(_publish(snapshot)));
   }

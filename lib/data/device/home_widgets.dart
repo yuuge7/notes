@@ -5,11 +5,72 @@ import 'package:flutter/services.dart';
 
 /// The app's widgets for the home screen.
 enum HomeWidget {
-  /// Pinned notes, then the latest, as the grid orders them.
+  /// The notes of one [WidgetFeed], as the grid orders them.
   notes,
 
   /// The compose bar: a note, a list, photos, or the camera.
   capture,
+}
+
+/// Which notes a notes widget shows, chosen as it is placed and changed from
+/// the widget's settings. Android keeps the choice for each widget by [key].
+@immutable
+sealed class WidgetFeed {
+  const WidgetFeed();
+
+  /// Reads a feed as Android keeps it, or null for one this version does not
+  /// know.
+  static WidgetFeed? decode(Object? key) => switch (key) {
+    'all' => const AllFeed(),
+    'pinned' => const PinnedFeed(),
+    final String key
+        when key.startsWith(LabelFeed._prefix) &&
+            key.length > LabelFeed._prefix.length =>
+      LabelFeed(key.substring(LabelFeed._prefix.length)),
+    _ => null,
+  };
+
+  String get key;
+
+  @override
+  bool operator ==(Object other) => other is WidgetFeed && other.key == key;
+
+  @override
+  int get hashCode => key.hashCode;
+}
+
+/// Pinned notes, then the latest: the grid's own order.
+class AllFeed extends WidgetFeed {
+  const AllFeed();
+
+  /// How the widget's settings offer it, in the app and on the home screen.
+  static const name = 'All notes';
+
+  @override
+  String get key => 'all';
+}
+
+/// Only the pinned notes.
+class PinnedFeed extends WidgetFeed {
+  const PinnedFeed();
+
+  /// How the widget's settings offer it, in the app and on the home screen.
+  static const name = 'Pinned notes';
+
+  @override
+  String get key => 'pinned';
+}
+
+/// The notes wearing one label, as on that label's page.
+class LabelFeed extends WidgetFeed {
+  const LabelFeed(this.labelId);
+
+  static const _prefix = 'label:';
+
+  final String labelId;
+
+  @override
+  String get key => '$_prefix$labelId';
 }
 
 /// What a tap on a home screen widget asks the app to do.
@@ -21,14 +82,16 @@ sealed class WidgetAction {
   /// does not know.
   static WidgetAction? decode(Object? message) {
     if (message is! Map) return null;
+    final feed = WidgetFeed.decode(message['feed']);
     return switch (message['action']) {
       'open' when message['noteId'] is String => OpenNote(
         message['noteId'] as String,
       ),
-      'newNote' => const NewNote(),
+      'newNote' => NewNote(feed: feed ?? const AllFeed()),
       'newList' => const NewList(),
       'addPhotos' => const AddPhotos(),
       'takePhoto' => const TakePhoto(),
+      'showFeed' when feed != null => ShowFeed(feed),
       _ => null,
     };
   }
@@ -46,8 +109,19 @@ class OpenNote extends WidgetAction {
   int get hashCode => noteId.hashCode;
 }
 
+/// The + on a notes widget, or Take a note on the new note widget. A note
+/// started from a widget showing one label wears it, and one started from the
+/// pinned widget is pinned, so the note lands on the widget it came from.
 class NewNote extends WidgetAction {
-  const NewNote();
+  const NewNote({this.feed = const AllFeed()});
+
+  final WidgetFeed feed;
+
+  @override
+  bool operator ==(Object other) => other is NewNote && other.feed == feed;
+
+  @override
+  int get hashCode => feed.hashCode;
 }
 
 class NewList extends WidgetAction {
@@ -60,6 +134,19 @@ class AddPhotos extends WidgetAction {
 
 class TakePhoto extends WidgetAction {
   const TakePhoto();
+}
+
+/// The heading of a notes widget: the app, at the page the widget mirrors.
+class ShowFeed extends WidgetAction {
+  const ShowFeed(this.feed);
+
+  final WidgetFeed feed;
+
+  @override
+  bool operator ==(Object other) => other is ShowFeed && other.feed == feed;
+
+  @override
+  int get hashCode => feed.hashCode;
 }
 
 /// The home screen widgets, as far as the app reaches them: what they show,
@@ -81,8 +168,8 @@ abstract interface class HomeWidgets {
   Future<bool> canPin();
 
   /// Asks the launcher to place [widget] on the home screen. The launcher
-  /// shows its own confirmation.
-  Future<void> pin(HomeWidget widget);
+  /// shows its own confirmation. A notes widget shows [feed].
+  Future<void> pin(HomeWidget widget, {WidgetFeed feed = const AllFeed()});
 }
 
 /// Android, reached through MainActivity.
@@ -115,6 +202,9 @@ class DeviceHomeWidgets implements HomeWidgets {
       await _channel.invokeMethod<bool>('canPin') ?? false;
 
   @override
-  Future<void> pin(HomeWidget widget) =>
-      _channel.invokeMethod<void>('pin', {'widget': widget.name});
+  Future<void> pin(HomeWidget widget, {WidgetFeed feed = const AllFeed()}) =>
+      _channel.invokeMethod<void>('pin', {
+        'widget': widget.name,
+        'feed': feed.key,
+      });
 }

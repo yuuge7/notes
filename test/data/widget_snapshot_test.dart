@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:notes/core/util/note_description.dart';
+import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/data/home_widgets/widget_snapshot.dart';
 import 'package:notes/domain/model/attachment.dart';
 import 'package:notes/domain/model/checklist_item.dart';
@@ -11,8 +12,8 @@ import 'package:notes/domain/model/note_page.dart';
 import 'package:notes/domain/model/note_type.dart';
 import 'package:notes/domain/model/pigment.dart';
 
-/// What the home screen widget is handed: the notes as the grid shows them,
-/// cut to what fits a glance.
+/// What the home screen widgets are handed: every feed a widget can show, and
+/// the notes on them as the grid shows them, cut to what fits a glance.
 void main() {
   final at = DateTime(2026, 9, 14, 9, 12);
 
@@ -66,13 +67,37 @@ void main() {
         indent: indent,
       );
 
-  Map<String, Object?> decode(List<Note> notes, {int? total}) => jsonDecode(
-    encodeWidgetSnapshot(NotePage(notes: notes, total: total ?? notes.length)),
-  ) as Map<String, Object?>;
+  NotePage page(List<Note> notes, {int? total}) =>
+      NotePage(notes: notes, total: total ?? notes.length);
 
-  List<Map<String, Object?>> notesOf(Map<String, Object?> snapshot) => [
-    for (final n in snapshot['notes']! as List) n as Map<String, Object?>,
+  Label label(String id, String name) =>
+      Label(id: id, name: name, sortKey: id, updatedAt: at);
+
+  Map<String, Object?> encode(WidgetShelves shelves) =>
+      jsonDecode(encodeWidgetSnapshot(shelves)) as Map<String, Object?>;
+
+  /// The grid alone: no pinned notes, no labels.
+  Map<String, Object?> decode(List<Note> notes, {int? total}) => encode((
+    all: page(notes, total: total),
+    pinned: page(const []),
+    labels: const [],
+  ));
+
+  List<Map<String, Object?>> feedsOf(Map<String, Object?> snapshot) => [
+    for (final feed in snapshot['feeds']! as List) feed as Map<String, Object?>,
   ];
+
+  Map<String, Object?> feed(Map<String, Object?> snapshot, String key) =>
+      feedsOf(snapshot).firstWhere((feed) => feed['feed'] == key);
+
+  /// The notes of the grid's feed, in its order.
+  List<Map<String, Object?>> notesOf(Map<String, Object?> snapshot) {
+    final notes = snapshot['notes']! as Map<String, Object?>;
+    return [
+      for (final id in feed(snapshot, 'all')['notes']! as List)
+        notes[id]! as Map<String, Object?>,
+    ];
+  }
 
   test('keeps the grid order and counts the whole shelf', () {
     final snapshot = decode([
@@ -80,8 +105,8 @@ void main() {
       note('b', title: 'Groceries'),
     ], total: 12);
 
-    expect(snapshot['version'], 1);
-    expect(snapshot['count'], 12);
+    expect(snapshot['version'], 2);
+    expect(feed(snapshot, 'all')['count'], 12);
     expect([for (final n in notesOf(snapshot)) n['id']], ['a', 'b']);
   });
 
@@ -92,7 +117,91 @@ void main() {
 
     expect(notesOf(snapshot), hasLength(widgetNoteLimit));
     expect(notesOf(snapshot).last['id'], 'n19');
-    expect(snapshot['count'], 25);
+    expect(feed(snapshot, 'all')['count'], 25);
+    expect(snapshot['notes']! as Map, hasLength(widgetNoteLimit));
+  });
+
+  group('feeds', () {
+    final home = label('h', 'Home');
+    final admin = label('a', 'Admin');
+    final flat = note('flat', title: 'Flat viewing', pinned: true);
+    final groceries = note('groceries', title: 'Groceries', labels: [home]);
+    final shelves = (
+      all: page([flat, groceries], total: 9),
+      pinned: page([flat], total: 1),
+      labels: [
+        (label: home, page: page([flat, groceries])),
+        (label: admin, page: page(const [])),
+      ],
+    );
+
+    test('the grid, the pinned notes, then each label in order', () {
+      final feeds = feedsOf(encode(shelves));
+
+      expect(
+        [
+          for (final feed in feeds)
+            (feed['feed'], feed['name'], feed['title'], feed['count']),
+        ],
+        [
+          ('all', 'All notes', 'Notes', 9),
+          ('pinned', 'Pinned notes', 'Pinned', 1),
+          ('label:h', 'Home', 'Home', 2),
+          ('label:a', 'Admin', 'Admin', 0),
+        ],
+      );
+      expect(
+        [for (final feed in feeds) feed['notes']],
+        [
+          ['flat', 'groceries'],
+          ['flat'],
+          ['flat', 'groceries'],
+          <String>[],
+        ],
+      );
+    });
+
+    test('a note on several feeds is written once', () {
+      final notes = encode(shelves)['notes']! as Map<String, Object?>;
+
+      expect(notes.keys, ['flat', 'groceries']);
+    });
+
+    test('each invites a note that lands on it when empty', () {
+      final snapshot = encode(shelves);
+
+      expect(feed(snapshot, 'all')['empty'], 'Tap + to take a note');
+      expect(feed(snapshot, 'pinned')['empty'], 'Tap + to take a pinned note');
+      expect(
+        feed(snapshot, 'label:a')['empty'],
+        'Tap + to take a note wearing “Admin”',
+      );
+    });
+
+    test('previews its first notes in a few words', () {
+      final snapshot = decode([
+        note('titled', title: '  Flat viewing '),
+        note('body', body: '\n  Call the landlord\nabout the boiler'),
+        note(
+          'list',
+          type: NoteType.checklist,
+          items: [item('Eggs', checked: true), item('Oat milk')],
+        ),
+        note('fourth', title: 'Left out'),
+      ]);
+
+      expect(
+        feed(snapshot, 'all')['preview'],
+        'Flat viewing · Call the landlord · Oat milk',
+      );
+      expect(feed(snapshot, 'pinned')['preview'], '');
+    });
+
+    test('a note with no words previews as what it holds', () {
+      final snapshot = decode([note('photos', images: 2), note('blank')]);
+
+      expect(feed(snapshot, 'all')['preview'], '2 images · Empty note');
+    });
   });
 
   test('a list shows open items first and counts what it leaves out', () {
@@ -145,7 +254,7 @@ void main() {
         note(
           'tiles',
           title: 'Tiles for the bathroom',
-          labels: [Label(id: 'h', name: 'Home', sortKey: 'n', updatedAt: at)],
+          labels: [label('h', 'Home')],
           images: 3,
         ),
         note('one', images: 1),

@@ -127,12 +127,14 @@ class LabelRepository {
       );
 
   /// Puts [labelId] on every note in [noteIds], or takes it off. Each note is
-  /// stamped as edited.
+  /// stamped as edited. A label deleted meanwhile, as under a note begun on
+  /// its page or from its home screen widget, goes on nothing.
   Future<void> setOnNotes(
     Iterable<String> noteIds,
     String labelId, {
     required bool on,
   }) => _dao.inTransaction(() async {
+    if (on && await _dao.loadLabel(labelId) == null) return;
     for (final noteId in noteIds) {
       if (on) {
         await _dao.attachLabel(noteId, labelId);
