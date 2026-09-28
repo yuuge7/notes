@@ -87,6 +87,9 @@ sealed class WidgetAction {
       'open' when message['noteId'] is String => OpenNote(
         message['noteId'] as String,
       ),
+      'addItem' when message['noteId'] is String => AddItem(
+        message['noteId'] as String,
+      ),
       'newNote' => NewNote(feed: feed ?? const AllFeed()),
       'newList' => const NewList(),
       'addPhotos' => const AddPhotos(),
@@ -104,6 +107,20 @@ class OpenNote extends WidgetAction {
 
   @override
   bool operator ==(Object other) => other is OpenNote && other.noteId == noteId;
+
+  @override
+  int get hashCode => noteId.hashCode;
+}
+
+/// The + on a note widget showing a list: the list, with a new item at its
+/// end ready to type into.
+class AddItem extends WidgetAction {
+  const AddItem(this.noteId);
+
+  final String noteId;
+
+  @override
+  bool operator ==(Object other) => other is AddItem && other.noteId == noteId;
 
   @override
   int get hashCode => noteId.hashCode;
@@ -170,21 +187,40 @@ abstract interface class HomeWidgets {
   /// Asks the launcher to place [widget] on the home screen. The launcher
   /// shows its own confirmation. A notes widget shows [feed].
   Future<void> pin(HomeWidget widget, {WidgetFeed feed = const AllFeed()});
+
+  /// Asks the launcher to place a note widget showing the note [noteId].
+  Future<void> pinNote(String noteId);
+
+  /// The notes the note widgets on the home screen show, by id: at once, and
+  /// again whenever one is placed, set to another note, or removed. The
+  /// snapshot carries these whole, wherever they are in the grid.
+  Stream<Set<String>> get shownNotes;
 }
 
 /// Android, reached through MainActivity.
 class DeviceHomeWidgets implements HomeWidgets {
   DeviceHomeWidgets() {
     _channel.setMethodCallHandler((call) async {
-      if (call.method != 'action') return;
-      final action = WidgetAction.decode(call.arguments);
-      if (action != null) _actions.add(action);
+      switch (call.method) {
+        case 'action':
+          final action = WidgetAction.decode(call.arguments);
+          if (action != null) _actions.add(action);
+        case 'shownNotes':
+          _shownChanges.add(_ids(call.arguments));
+      }
     });
   }
 
   static const _channel = MethodChannel('com.ionel.notes/widgets');
 
   final _actions = StreamController<WidgetAction>.broadcast();
+  final _shownChanges = StreamController<Set<String>>.broadcast();
+
+  static Set<String> _ids(Object? ids) => {
+    if (ids is List)
+      for (final id in ids)
+        if (id is String) id,
+  };
 
   @override
   Future<void> publish(String snapshot) =>
@@ -207,4 +243,36 @@ class DeviceHomeWidgets implements HomeWidgets {
         'widget': widget.name,
         'feed': feed.key,
       });
+
+  @override
+  Future<void> pinNote(String noteId) =>
+      _channel.invokeMethod<void>('pin', {'widget': 'note', 'noteId': noteId});
+
+  /// Listens for changes before asking, so none falls between the answer and
+  /// the listening. Android answers and sends in order, so the last set to
+  /// arrive is the one on the home screen.
+  @override
+  Stream<Set<String>> get shownNotes {
+    StreamSubscription<Set<String>>? changes;
+    late final StreamController<Set<String>> controller;
+    controller = StreamController<Set<String>>(
+      onListen: () {
+        changes = _shownChanges.stream.listen(controller.add);
+        unawaited(
+          _channel
+              .invokeMethod<Object?>('shownNotes')
+              .then(
+                (ids) {
+                  if (!controller.isClosed) controller.add(_ids(ids));
+                },
+                onError: (Object error, StackTrace stack) {
+                  if (!controller.isClosed) controller.addError(error, stack);
+                },
+              ),
+        );
+      },
+      onCancel: () => changes?.cancel(),
+    );
+    return controller.stream;
+  }
 }

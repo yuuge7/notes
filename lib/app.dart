@@ -86,6 +86,8 @@ class _NotesAppState extends ConsumerState<NotesApp> {
     switch (action) {
       case OpenNote(:final noteId):
         await _open(noteId);
+      case AddItem(:final noteId):
+        await _open(noteId, addItem: true);
       case NewNote(:final feed):
         await _openNew(feed: feed);
       case NewList():
@@ -179,8 +181,8 @@ class _NotesAppState extends ConsumerState<NotesApp> {
   }
 
   /// Opens a note from its notification or the widget, over whatever is
-  /// showing.
-  Future<void> _open(String noteId) async {
+  /// showing. With [addItem], a list opens on a new item at its end.
+  Future<void> _open(String noteId, {bool addItem = false}) async {
     final repository = ref.read(noteRepositoryProvider);
     final note = await repository.load(noteId);
     final context = await _navigator();
@@ -194,6 +196,7 @@ class _NotesAppState extends ConsumerState<NotesApp> {
       repository,
       noteId: noteId,
       readOnly: note.deleted,
+      addItem: addItem,
     );
   }
 

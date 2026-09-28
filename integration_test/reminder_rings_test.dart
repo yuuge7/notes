@@ -149,6 +149,12 @@ class _OwnWidgets implements HomeWidgets {
     HomeWidget widget, {
     WidgetFeed feed = const AllFeed(),
   }) async {}
+
+  @override
+  Future<void> pinNote(String noteId) async {}
+
+  @override
+  Stream<Set<String>> get shownNotes => Stream.value(const {});
 }
 
 /// Keeps the theme chosen in the phone's own copy of the app: this database

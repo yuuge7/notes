@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An item's words on a note widget: muted once ticked, as on its card. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/ink_muted" android:state_checked="true" />
+    <item android:color="@color/ink" />
+</selector>

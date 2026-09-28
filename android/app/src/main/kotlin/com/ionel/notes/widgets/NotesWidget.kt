@@ -21,6 +21,7 @@ import com.ionel.notes.R
 class NotesWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         update(context, manager, ids)
+        WidgetWorker.healIfStale(this, context)
     }
 
     override fun onDeleted(context: Context, ids: IntArray) {

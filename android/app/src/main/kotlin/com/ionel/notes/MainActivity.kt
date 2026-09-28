@@ -56,7 +56,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        widgets = HomeWidgetsChannel(applicationContext, flutterEngine.dartExecutor.binaryMessenger).apply {
+        widgets = HomeWidgetsChannel(applicationContext, flutterEngine.dartExecutor.binaryMessenger, app = true).apply {
             launchedWith(if (restored) null else WidgetLaunch.read(intent))
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
@@ -98,6 +98,12 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        widgets?.detach()
+        widgets = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     /**

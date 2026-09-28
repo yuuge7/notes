@@ -19,10 +19,22 @@ class FakeHomeWidgets implements HomeWidgets {
   /// notes widget was to show.
   final pinned = <(HomeWidget, WidgetFeed)>[];
 
+  /// Notes the app asked the launcher to place a note widget for, in order.
+  final pinnedNotes = <String>[];
+
   final _actions = StreamController<WidgetAction>.broadcast();
+  final _shown = StreamController<Set<String>>.broadcast();
+  var _shownNow = <String>{};
 
   /// A widget tapped while the app runs.
   void tap(WidgetAction action) => _actions.add(action);
+
+  /// Note widgets placed, set to other notes, or removed: [ids] are the
+  /// notes they show now.
+  void show(Set<String> ids) {
+    _shownNow = ids;
+    _shown.add(ids);
+  }
 
   @override
   Future<void> publish(String snapshot) async =>
@@ -46,4 +58,13 @@ class FakeHomeWidgets implements HomeWidgets {
     HomeWidget widget, {
     WidgetFeed feed = const AllFeed(),
   }) async => pinned.add((widget, feed));
+
+  @override
+  Future<void> pinNote(String noteId) async => pinnedNotes.add(noteId);
+
+  @override
+  Stream<Set<String>> get shownNotes async* {
+    yield _shownNow;
+    yield* _shown.stream;
+  }
 }

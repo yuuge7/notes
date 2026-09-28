@@ -300,7 +300,8 @@ media/thumbs/<attachmentId>.jpg   (added in milestone 6: an import need not rema
 - `dataExtractionRules` keep the database, files, and preferences out of cloud backup and device transfer.
 - Home screen widgets (milestone 8), drawn with `RemoteViews` from a JSON snapshot the app writes, so they
   show notes with the app closed. Each notes widget shows one feed, chosen as it is placed: every note, the
-  pinned ones, or one label's. Their colours are copies of the theme tokens in `res/values*/colors.xml`,
+  pinned ones, or one label's. A note widget shows one note, its list ticked off on the home screen through
+  the app's own Dart, run in a Flutter engine with no screen. Their colours are copies of the theme tokens in `res/values*/colors.xml`,
   kept equal by a test; their faces are the system's serif, mono, and sans, since a launcher does not load
   an app's font resources.
 - Release: R8 keep rules for the notifications plugin's Gson storage, `res/raw/keep.xml` for the notification
@@ -974,3 +975,63 @@ Decisions and findings:
 Carried forward:
 - Android 7 to 11 take the service path for the cards, untested here.
 - Only the Pixel launcher was tried, and only its dialog for placing from the app, which skips the setup.
+
+### After milestone 8 — a widget for one note, ticked off on the home screen (2026-09-28)
+
+Asked for after the feeds: a widget holding a single note, above all a list, whose items can be checked and
+unchecked right on the home screen. Covered by the suite (540 tests) and checked on the Android 17 emulator
+on a release build.
+
+- **Note widget** ("Note" in the launcher's list, 3 by 3, down to 2 by 2): one note on its own card, in its
+  pigment with the spine, under its title and "n of m done". A list's items are rows the whole width, each a
+  real checkbox from Android 12 (TalkBack hears "checkbox, checked"), indented children kept. Checked items
+  go where the "checked items" setting puts them: under an "n checked items" count, folded or shown, or in
+  place. Tapping the count folds them on that widget alone. A text note shows its text, up to 2,000
+  characters, scrolling. Up to 100 items, then "+n more".
+- **Ticking** works with the app closed or open. From Android 12 the launcher flips the box the moment it is
+  tapped; the tick is written through `ChecklistRepository.setChecked` (a parent carries its children, as in
+  the editor) and every widget redraws within a second, the item struck through and moved below. With the
+  editor open on that list, the tick shows there at once.
+- **The heading** opens the note; **+** opens the list on a new empty item with the keyboard up (left empty,
+  it goes when the note closes, as any empty item does).
+- **Choosing.** Placing it from the launcher opens the settings sheet with the grid's first 50 notes, pinned
+  first, each by its headline over what follows; the widget's own Settings changes it. A note's menu has
+  **Add to home screen** (where the launcher can place widgets), for any note, however far down the grid. A
+  note deleted since leaves the widget saying so, and a tap opens the sheet; an archived note stays on it.
+- **How it fits together.** The snapshot is version 3: it adds `choices` and `pages`, the notes the note
+  widgets show, carried whole wherever they are, `null` for one deleted. Android keeps which note each widget
+  shows (`WidgetNotes`) and tells the app when that changes; `HomeWidgetSync` follows those ids and the
+  checked-items setting. A tick is a broadcast to `NoteWidget`, which hands it to `WidgetWorker`: the app's own
+  Dart (`widget_worker.dart`), run in a Flutter engine with no screen, started on first need and kept for the
+  process's life, as the notifications plugin keeps its own. It opens the database for each run (the app's
+  connection when the app runs, through `shareAcrossIsolates`), writes every tap that came meanwhile in
+  order, and hands over one snapshot. Both engines write snapshots on one thread, so two never interleave.
+
+Decisions and findings:
+- **A worker engine, not Kotlin writing SQLite.** A write from outside Drift would not reach the app's
+  streams, so an open editor or grid would not see it, and Android's SQLite need not match the bundled one.
+  The engine is never shut down: the database may be served from its isolates to the app's.
+- **A plain `View` cannot go in a widget.** The hairline over the count was a `View`, and the launcher's
+  preview said "Couldn't add widget"; it is a `FrameLayout` now. Checkboxes need Android 12, so
+  `layout-v31/widget_note_row.xml` has one and `layout/widget_note_row.xml` an image beside the words, with the
+  state in its description for TalkBack.
+- **After an update the widgets waited for the app.** A snapshot in the old shape reads as none, so every
+  widget said "Open Notes once" until the app was opened (it did so after this update). Now a widget that
+  updates over an unreadable snapshot asks the worker for a fresh one.
+- The editor's menu gained Add to home screen between Delete checked items and Delete, shown only where the
+  launcher can place widgets, as in settings.
+
+On the emulator: placed from Groceries' menu (the preview, then the moss card with its five items); ticked
+Eggs with the app in the background (redrawn under 300ms, folded under "1 checked item"), unfolded it on the
+widget, and unticked it with the process ended (`am crash`), redrawn in under 0.7s by a cold worker; + opened
+the list on a new item and "Butter" showed on the widget; ticked Milk with the editor open behind, and the
+editor showed it checked on return; the settings sheet listed the notes with Groceries marked; set to a text
+note, then to an untitled one (no heading, the text at the top); that note deleted showed the deleted state,
+and its tap opened the sheet; light theme; 200% text (placed from the menu, since the launcher keeps a
+separate layout), including a tick. The accessibility tree gives each item as a checkbox with its state and a
+48dp row, the heading as one button named with the title and progress; TalkBack itself was not run.
+
+Carried forward:
+- Android 7 to 11 take the service path and the image boxes, untested here.
+- The emulator keeps the Groceries list and its widgets from this check, and a "Widget test" note in the
+  trash.

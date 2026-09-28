@@ -5,6 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:notes/app.dart';
 
+// The home screen widgets' worker runs in an engine of its own, not from
+// here; exported so the build keeps it.
+export 'package:notes/data/home_widgets/widget_worker.dart' show widgetWorker;
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));

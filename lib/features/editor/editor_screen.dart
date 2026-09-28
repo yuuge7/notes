@@ -8,6 +8,7 @@ import 'package:notes/core/theme/app_colors.dart';
 import 'package:notes/core/theme/tokens.dart';
 import 'package:notes/core/theme/typography.dart';
 import 'package:notes/core/ui/undo.dart';
+import 'package:notes/core/util/checklist_rules.dart';
 import 'package:notes/core/util/share_text.dart';
 import 'package:notes/data/providers.dart';
 import 'package:notes/data/repository/checklist_repository.dart';
@@ -38,6 +39,7 @@ enum _More {
   hideCheckboxes,
   uncheckAll,
   deleteChecked,
+  homeScreen,
   delete,
 }
 
@@ -56,6 +58,7 @@ class EditorScreen extends ConsumerStatefulWidget {
     this.startPinned = false,
     this.labelId,
     this.initialPhotos = const [],
+    this.addItem = false,
     super.key,
   });
 
@@ -81,6 +84,10 @@ class EditorScreen extends ConsumerStatefulWidget {
   /// Photos a new note starts with, as when it is begun from the compose
   /// bar's photo or camera button.
   final List<File> initialPhotos;
+
+  /// Whether a list opens on a new item at its end, ready to type into, as
+  /// from the + on its home screen widget. A text note just opens.
+  final bool addItem;
 
   @override
   ConsumerState<EditorScreen> createState() => _EditorScreenState();
@@ -176,6 +183,26 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       _isChecklist = note.isChecklist;
       _seeded = true;
     });
+    if (widget.addItem && note.isChecklist && !widget.readOnly) {
+      await _addLastItem(note);
+    }
+  }
+
+  /// A new item where the list's own add line puts one: after the last open
+  /// item, or after the last of all when checked items stay in place. Left
+  /// empty, it goes when the page closes, as any empty item does.
+  Future<void> _addLastItem(Note note) async {
+    final settings = await ref.read(appSettingsProvider.future);
+    final shown = settings.checkedItems.atBottom
+        ? ChecklistRules.open(note.items)
+        : ChecklistRules.ordered(note.items);
+    final added = await _lists.add(
+      note.id,
+      afterItemId: shown.lastOrNull?.id,
+      indent: 0,
+    );
+    _checklist.pendingFocus = (itemId: added.id, cursor: 0);
+    if (mounted) setState(() {});
   }
 
   Future<void> _startList() async {
@@ -329,6 +356,17 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         .copyAll(from: source, to: copy.id);
     _leaving = true;
     navigator.pop(Copied(copy.id));
+  }
+
+  /// Hands the launcher a note widget showing this note, saved first so the
+  /// widget shows it as it stands. The launcher asks before placing it.
+  Future<void> _addToHomeScreen() async {
+    if (_isEmptyDraft || _isUntouchedNew) return;
+    final widgets = ref.read(homeWidgetsProvider);
+    _debounce?.cancel();
+    await _checklist.flush();
+    await _save(_title.text, _body.text);
+    await widgets.pinNote(await _ensureNote(_title.text, _body.text));
   }
 
   Note? _liveNote() {
@@ -547,6 +585,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
         unawaited(_uncheckAll());
       case _More.deleteChecked:
         unawaited(_deleteChecked());
+      case _More.homeScreen:
+        unawaited(_addToHomeScreen());
       case _More.delete:
         unawaited(_leave(MovedToTrash.new));
     }
@@ -866,6 +906,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
                 canCopy: () =>
                     _hasContent() ||
                     (_liveNote()?.attachments.isNotEmpty ?? false),
+                // Offered only where the launcher can place a widget for
+                // the app, as in settings.
+                canPin: ref.watch(widgetPinningProvider).value ?? false,
                 onColour: () => unawaited(_pickPigment(pigment)),
                 onAddImage: () => unawaited(_chooseImages()),
                 onMore: _onMore,
@@ -967,6 +1010,7 @@ class _BottomBar extends StatelessWidget {
     required this.status,
     required this.hasContent,
     required this.canCopy,
+    required this.canPin,
     required this.onColour,
     required this.onAddImage,
     required this.onMore,
@@ -985,6 +1029,9 @@ class _BottomBar extends StatelessWidget {
 
   /// Whether Make a copy has anything to copy: text, or images alone.
   final bool Function() canCopy;
+
+  /// Whether the launcher can place a note widget for the app.
+  final bool canPin;
   final VoidCallback onColour;
   final VoidCallback onAddImage;
   final ValueChanged<_More> onMore;
@@ -1097,6 +1144,12 @@ class _BottomBar extends StatelessWidget {
                           const PopupMenuItem(
                             value: _More.showCheckboxes,
                             child: Text('Show checkboxes'),
+                          ),
+                        if (canPin)
+                          PopupMenuItem(
+                            value: _More.homeScreen,
+                            enabled: canCopy(),
+                            child: const Text('Add to home screen'),
                           ),
                         const PopupMenuItem(
                           value: _More.delete,

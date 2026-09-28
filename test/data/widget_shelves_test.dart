@@ -117,6 +117,44 @@ void main() {
     expect(shelves.labels.single.page.total, 0);
   });
 
+  test('offers the grid past the shelves, for a note widget', () async {
+    for (final title in ['Boiler', 'Tiles', 'Passport', 'Bike']) {
+      await notes.create(title: title);
+    }
+
+    final shelves = await db.noteDao.loadWidgetShelves(2, choices: 3);
+
+    expect(titles(shelves.all), ['Bike', 'Passport']);
+    expect(
+      [for (final note in shelves.choices) note.title],
+      ['Bike', 'Passport', 'Tiles'],
+    );
+  });
+
+  test('carries the notes on note widgets, wherever they are', () async {
+    final list = await notes.create(title: 'Groceries');
+    final archived = await notes.create(title: 'Winter tyres');
+    final trashed = await notes.create(title: 'Old lease');
+    for (var i = 0; i < 3; i++) {
+      await notes.create(title: 'Newer $i');
+    }
+    await notes.setArchived(archived.id, archived: true);
+    await notes.delete(trashed.id);
+
+    final shelves = await db.noteDao.loadWidgetShelves(
+      2,
+      pages: {list.id, archived.id, trashed.id, 'never-was'},
+    );
+
+    expect(titles(shelves.all), isNot(contains('Groceries')));
+    expect(shelves.pages[list.id]?.title, 'Groceries');
+    // Archived, a note still shows on its widget; in the trash it is gone.
+    expect(shelves.pages[archived.id]?.title, 'Winter tyres');
+    expect(shelves.pages.keys, hasLength(4));
+    expect(shelves.pages[trashed.id], isNull);
+    expect(shelves.pages['never-was'], isNull);
+  });
+
   test('reloads when a label changes, not only a note', () async {
     final home = await labels.create('Home');
     final seen = <List<String>>[];

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A clay note widget: the note's card at the size of the widget, its
+     spine the sliver of spine colour the tint leaves uncovered on the left,
+     with the launcher's corners. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/spine_clay" />
+            <corners android:radius="@dimen/widget_radius" />
+        </shape>
+    </item>
+    <item android:left="3dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/tint_clay" />
+            <corners android:radius="@dimen/widget_radius" />
+        </shape>
+    </item>
+</layer-list>

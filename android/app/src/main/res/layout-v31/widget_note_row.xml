@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One item on a note widget, from Android 12: a checkbox with the item's
+     words, so the whole row is the target and TalkBack hears a checkbox.
+     NoteWidget indents a child with the row's padding. Before Android 12 a
+     widget cannot hold a checkbox; see layout/widget_note_row.xml. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <CheckBox
+        android:id="@+id/row_check"
+        style="@style/WidgetText.NoteBody"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_press"
+        android:button="@drawable/widget_check"
+        android:minHeight="48dp"
+        android:paddingStart="10dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="4dp"
+        android:paddingBottom="6dp"
+        android:textColor="@color/widget_item_text" />
+</FrameLayout>

@@ -23,11 +23,13 @@ object WidgetLaunch {
     const val TAKE_PHOTO = "takePhoto"
     private const val OPEN = "open"
     private const val SHOW_FEED = "showFeed"
+    private const val ADD_ITEM = "addItem"
 
     /**
-     * Where the request codes of each notes widget's own intents start. Two
-     * per widget, past the fixed codes above; request codes rather than intent
+     * Where the request codes of each widget's own intents start. Two per
+     * widget, past the fixed codes above; request codes rather than intent
      * data keep them apart, since FlutterActivity reads data as a deep link.
+     * Widget ids are unique across both kinds of widget.
      */
     private const val WIDGET_CODES = 100
 
@@ -59,6 +61,22 @@ object WidgetLaunch {
     fun showFeed(context: Context, widgetId: Int, feed: String) =
         forFeed(context, WIDGET_CODES + widgetId * 2 + 1, SHOW_FEED, feed)
 
+    /** The + on note widget [widgetId]: its list [noteId], with a new item ready to type into. */
+    fun addItem(context: Context, widgetId: Int, noteId: String) =
+        forNote(context, WIDGET_CODES + widgetId * 2, ADD_ITEM, noteId)
+
+    /** The heading of note widget [widgetId]: its note [noteId], open in the app. */
+    fun showNote(context: Context, widgetId: Int, noteId: String) =
+        forNote(context, WIDGET_CODES + widgetId * 2 + 1, OPEN, noteId)
+
+    private fun forNote(context: Context, code: Int, action: String, noteId: String): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            code,
+            intent(context).putExtra(EXTRA_ACTION, action).putExtra(EXTRA_NOTE, noteId),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
     private fun forFeed(context: Context, code: Int, action: String, feed: String?): PendingIntent =
         PendingIntent.getActivity(
             context,
@@ -67,7 +85,7 @@ object WidgetLaunch {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-    /** Opens the settings of notes widget [widgetId], to choose what it shows. */
+    /** Opens the settings of widget [widgetId], a notes or a note widget, to choose what it shows. */
     fun setup(context: Context, widgetId: Int): PendingIntent = PendingIntent.getActivity(
         context,
         widgetId,

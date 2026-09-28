@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The note widget: one note on its own card, its title over its items, each
+     a box to tick right here, or over its text. NoteWidget sets the card's
+     colour and fills the list. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_page_graphite"
+    android:orientation="vertical"
+    android:paddingStart="12dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="4dp">
+
+    <LinearLayout
+        android:id="@+id/note_top"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:id="@+id/note_header"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/widget_press"
+            android:gravity="center_vertical"
+            android:minHeight="48dp"
+            android:orientation="vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp">
+
+            <TextView
+                android:id="@+id/note_heading"
+                style="@style/WidgetText.Heading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:text="@string/widget_note_title" />
+
+            <TextView
+                android:id="@+id/note_meta"
+                style="@style/WidgetText.Meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:textAllCaps="true"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/note_add"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/widget_press"
+            android:contentDescription="@string/widget_add_item"
+            android:padding="12dp"
+            android:src="@drawable/ic_widget_add"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/note_rows"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:divider="@null"
+            android:dividerHeight="0dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp"
+            android:scrollbars="none" />
+
+        <TextView
+            android:id="@+id/note_rows_empty"
+            style="@style/WidgetText.NoteBody.Muted"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/widget_press"
+            android:gravity="center"
+            android:paddingStart="12dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="12dp" />
+    </FrameLayout>
+</LinearLayout>

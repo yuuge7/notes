@@ -21,15 +21,18 @@ import android.window.OnBackInvokedDispatcher
 import com.ionel.notes.R
 
 /**
- * A notes widget's settings: every note, the pinned ones, or one label's.
+ * A widget's settings. For a notes widget: every note, the pinned ones, or
+ * one label's. For a note widget: which note, from the grid's first, pinned
+ * ones first.
  *
  * The launcher opens it as a widget is placed, and again from the widget's
- * own settings; the widget opens it too when its label has been deleted. The
- * choices come from the snapshot, so it lists the labels with the app closed.
- * A choice applies the moment it is made, as in the app's settings.
+ * own settings; the widget opens it too when its label or note has been
+ * deleted. The choices come from the snapshot, so it lists them with the app
+ * closed. A choice applies the moment it is made, as in the app's settings.
  */
 class NotesWidgetSetup : Activity() {
     private var widgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var forNote = false
     private lateinit var scrim: View
     private lateinit var sheet: View
     private var closing = false
@@ -40,17 +43,19 @@ class NotesWidgetSetup : Activity() {
         // Backing out while placing a widget takes it off the home screen.
         setResult(RESULT_CANCELED, result())
         val provider = AppWidgetManager.getInstance(this).getAppWidgetInfo(widgetId)?.provider
-        if (provider?.className != NotesWidget::class.java.name || provider.packageName != packageName) {
+        val kinds = listOf(NotesWidget::class.java.name, NoteWidget::class.java.name)
+        if (provider == null || provider.className !in kinds || provider.packageName != packageName) {
             finish()
             return
         }
+        forNote = provider.className == NoteWidget::class.java.name
 
         setContentView(R.layout.widget_setup)
         scrim = findViewById(R.id.setup_scrim)
         sheet = findViewById(R.id.setup_sheet)
         scrim.setOnClickListener { close() }
         fitBehindSystemBars()
-        listChoices(findViewById(R.id.setup_options))
+        if (forNote) listNotes(findViewById(R.id.setup_options)) else listChoices(findViewById(R.id.setup_options))
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) { close() }
@@ -67,8 +72,16 @@ class NotesWidgetSetup : Activity() {
     private fun listChoices(options: LinearLayout) {
         val snapshot = WidgetSnapshot.read(this)
         val chosen = WidgetFeeds.of(this, widgetId)
-        fun add(key: String, feed: WidgetFeed?, fallback: Int = 0) =
-            options.addView(option(options, key, feed?.name ?: getString(fallback), feed, chosen = key == chosen))
+        fun add(key: String, feed: WidgetFeed?, fallback: Int = 0) = options.addView(
+            option(
+                options,
+                key,
+                feed?.name ?: getString(fallback),
+                count = feed?.count,
+                preview = feed?.preview.orEmpty(),
+                chosen = key == chosen,
+            ),
+        )
 
         // Before the app has run there is no snapshot to name these, and no
         // labels to offer.
@@ -84,7 +97,41 @@ class NotesWidgetSetup : Activity() {
         }
     }
 
-    private fun option(parent: ViewGroup, key: String, name: String, feed: WidgetFeed?, chosen: Boolean): View {
+    /**
+     * The notes a note widget can show, each by its headline over what
+     * follows. A note chosen from its own menu in the app may be further down
+     * the grid than these; it comes first, marked.
+     */
+    private fun listNotes(options: LinearLayout) {
+        val snapshot = WidgetSnapshot.read(this)
+        if (snapshot == null) {
+            options.addView(text(getString(R.string.widget_setup_notes_waiting), R.style.WidgetSetupText_Hint, Faces.UI))
+            return
+        }
+        val chosen = WidgetNotes.of(this, widgetId)
+        val current = chosen?.let { snapshot.page(it) as? PageState.Shown }?.page
+        if (current != null && snapshot.choices.none { it.id == current.id }) {
+            val name = current.title.ifEmpty { current.label }
+            options.addView(option(options, current.id, name, count = null, preview = "", chosen = true))
+        }
+        for (choice in snapshot.choices) {
+            options.addView(
+                option(options, choice.id, choice.name, count = null, preview = choice.preview, chosen = choice.id == chosen),
+            )
+        }
+        if (snapshot.choices.isEmpty() && current == null) {
+            options.addView(text(getString(R.string.widget_setup_no_notes), R.style.WidgetSetupText_Hint, Faces.UI))
+        }
+    }
+
+    private fun option(
+        parent: ViewGroup,
+        key: String,
+        name: String,
+        count: Int?,
+        preview: String,
+        chosen: Boolean,
+    ): View {
         val row = layoutInflater.inflate(R.layout.widget_setup_option, parent, false)
         row.findViewById<RadioButton>(R.id.option_radio).isChecked = chosen
         row.findViewById<TextView>(R.id.option_name).apply {
@@ -92,22 +139,22 @@ class NotesWidgetSetup : Activity() {
             Faces.apply(this@NotesWidgetSetup, this, Faces.UI)
         }
         row.findViewById<TextView>(R.id.option_count).apply {
-            text = feed?.count?.toString().orEmpty()
-            visibility = if (feed == null) View.GONE else View.VISIBLE
+            text = count?.toString().orEmpty()
+            visibility = if (count == null) View.GONE else View.VISIBLE
             Faces.apply(this@NotesWidgetSetup, this, Faces.META)
         }
         row.findViewById<TextView>(R.id.option_preview).apply {
-            text = feed?.preview.orEmpty()
+            text = preview
             visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
             Faces.apply(this@NotesWidgetSetup, this, Faces.READING)
         }
 
         // TalkBack hears one radio button: the name, how many notes, and
-        // the first of them.
+        // the first of them; for a note, its headline and what follows.
         row.contentDescription = listOfNotNull(
             name,
-            feed?.let { resources.getQuantityString(R.plurals.widget_setup_count, it.count, it.count) },
-            feed?.preview?.takeIf { it.isNotEmpty() },
+            count?.let { resources.getQuantityString(R.plurals.widget_setup_count, it, it) },
+            preview.takeIf { it.isNotEmpty() },
         ).joinToString(". ")
         row.accessibilityDelegate = object : View.AccessibilityDelegate() {
             override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
@@ -132,8 +179,12 @@ class NotesWidgetSetup : Activity() {
 
     private fun choose(key: String) {
         if (closing) return
-        WidgetFeeds.choose(this, widgetId, key)
-        NotesWidget.redraw(this, widgetId)
+        if (forNote) {
+            NoteWidget.chosen(applicationContext, widgetId, key)
+        } else {
+            WidgetFeeds.choose(this, widgetId, key)
+            NotesWidget.redraw(this, widgetId)
+        }
         setResult(RESULT_OK, result())
         close()
     }

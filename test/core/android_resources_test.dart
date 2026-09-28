@@ -69,4 +69,16 @@ void main() {
       );
     }
   });
+
+  test('every pigment colours a note widget', () {
+    for (final pigment in Pigment.values) {
+      expect(
+        File(
+          'android/app/src/main/res/drawable/widget_page_${pigment.name}.xml',
+        ).existsSync(),
+        isTrue,
+        reason: pigment.name,
+      );
+    }
+  });
 }

@@ -14,12 +14,15 @@ import 'package:notes/data/db/note_dao.dart';
 import 'package:notes/data/device/home_widgets.dart';
 import 'package:notes/data/home_widgets/home_widget_sync.dart';
 import 'package:notes/data/providers.dart';
+import 'package:notes/data/repository/checklist_repository.dart';
 import 'package:notes/data/repository/label_repository.dart';
 import 'package:notes/data/repository/note_repository.dart';
 import 'package:notes/data/repository/reminder_repository.dart';
+import 'package:notes/data/repository/settings_repository.dart';
 import 'package:notes/data/seed.dart';
 import 'package:notes/domain/model/label.dart';
 import 'package:notes/domain/model/note.dart';
+import 'package:notes/domain/model/settings.dart';
 import 'package:notes/features/editor/editor_screen.dart';
 import 'package:notes/features/notes/notes_screen.dart';
 
@@ -128,7 +131,11 @@ void main() {
 
     setUp(() async {
       await seedIfEmpty(db.noteDao);
-      sync = HomeWidgetSync(NoteRepository(db.noteDao), widgets)..start();
+      sync = HomeWidgetSync(
+        NoteRepository(db.noteDao),
+        SettingsRepository(db.preferenceDao),
+        widgets,
+      )..start();
     });
 
     tearDown(() => sync.dispose());
@@ -233,6 +240,83 @@ void main() {
       await landed();
 
       expect(widgets.published, hasLength(1));
+    });
+
+    Map<String, Object?> pagesIn(Map<String, Object?> snapshot) =>
+        snapshot['pages']! as Map<String, Object?>;
+
+    test('the notes a note widget can be set to', () async {
+      await landed();
+
+      final snapshot = widgets.published.single;
+      final seeded = await db.noteDao.loadShelf(Shelf.active);
+      expect(
+        [
+          for (final choice in snapshot['choices']! as List)
+            (choice as Map)['id'],
+        ],
+        [for (final note in seeded) note.id],
+      );
+      expect(pagesIn(snapshot), isEmpty);
+    });
+
+    test('a note widget placed carries its note whole', () async {
+      await landed();
+      final groceries = (await db.noteDao.loadShelf(Shelf.active))
+          .firstWhere((note) => note.title == 'Groceries');
+
+      widgets.show({groceries.id});
+      await landed();
+
+      final page =
+          pagesIn(widgets.published.last)[groceries.id]!
+              as Map<String, Object?>;
+      expect(page['title'], 'Groceries');
+      expect(
+        (page['items']! as List).length + (page['done']! as List).length,
+        groceries.items.where((item) => item.text.trim().isNotEmpty).length,
+      );
+
+      // Removed, the widget's note is no longer carried.
+      widgets.show(const {});
+      await landed();
+      expect(pagesIn(widgets.published.last), isEmpty);
+    });
+
+    test('an item ticked in the app ticks on the note widget', () async {
+      final groceries = (await db.noteDao.loadShelf(Shelf.active))
+          .firstWhere((note) => note.title == 'Groceries');
+      final open = groceries.uncheckedItems.first;
+      widgets.show({groceries.id});
+      await landed();
+
+      await ChecklistRepository(db.noteDao)
+          .setChecked(groceries.id, open.id, checked: true);
+      await landed();
+
+      final page =
+          pagesIn(widgets.published.last)[groceries.id]!
+              as Map<String, Object?>;
+      expect([
+        for (final item in page['done']! as List) (item as Map)['id'],
+      ], contains(open.id));
+    });
+
+    test('the checked items fold as the setting has them', () async {
+      final groceries = (await db.noteDao.loadShelf(Shelf.active))
+          .firstWhere((note) => note.title == 'Groceries');
+      widgets.show({groceries.id});
+      await landed();
+      Map<String, Object?> page() =>
+          pagesIn(widgets.published.last)[groceries.id]!
+              as Map<String, Object?>;
+      expect(page()['folded'], isTrue);
+
+      await SettingsRepository(db.preferenceDao)
+          .setCheckedItems(CheckedItems.shown);
+      await landed();
+
+      expect(page()['folded'], isFalse);
     });
   });
 
@@ -383,6 +467,54 @@ void main() {
       },
     );
 
+    testWidgets('on + of a note widget opens its list on a new item', (
+      tester,
+    ) async {
+      await tester.runAsync(() => seedIfEmpty(db.noteDao));
+      final groceries = await noteTitled(tester, 'Groceries');
+      final before = groceries.items.length;
+      await pumpApp(tester);
+
+      widgets.tap(AddItem(groceries.id));
+      await settle(tester);
+
+      expect(find.byType(EditorScreen), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Groceries'), findsOneWidget);
+      final after = await noteTitled(tester, 'Groceries');
+      expect(after.items, hasLength(before + 1));
+      // The new item is the last of the open ones, empty and being typed
+      // into.
+      final added = after.uncheckedItems.last;
+      expect(added.text, '');
+      final focused = tester.widget<EditableText>(
+        find.byWidgetPredicate(
+          (widget) => widget is EditableText && widget.focusNode.hasFocus,
+        ),
+      );
+      expect(focused.controller.text, '');
+
+      // Left empty, it goes as the note closes.
+      await tester.tap(find.byTooltip('Back'));
+      await settle(tester);
+      expect((await noteTitled(tester, 'Groceries')).items, hasLength(before));
+      await unmount(tester);
+    });
+
+    testWidgets('on + of a note widget whose note is text just opens it', (
+      tester,
+    ) async {
+      await tester.runAsync(() => seedIfEmpty(db.noteDao));
+      final flat = await noteTitled(tester, 'Flat viewing — Aurel Vlaicu 12');
+      await pumpApp(tester);
+
+      widgets.tap(AddItem(flat.id));
+      await settle(tester);
+
+      expect(find.byType(EditorScreen), findsOneWidget);
+      expect((await noteTitled(tester, flat.title)).items, isEmpty);
+      await unmount(tester);
+    });
+
     testWidgets('on a note deleted since says so', (tester) async {
       widgets.launchAction = const OpenNote('gone');
 
@@ -408,6 +540,14 @@ void main() {
       expect(WidgetAction.decode({'action': 'newNote'}), const NewNote());
     });
 
+    test('a new item on the list a note widget shows', () {
+      expect(
+        WidgetAction.decode({'action': 'addItem', 'noteId': 'abc'}),
+        const AddItem('abc'),
+      );
+      expect(WidgetAction.decode({'action': 'addItem'}), isNull);
+    });
+
     test('the page a widget mirrors, when the feed is one it knows', () {
       expect(
         WidgetAction.decode({'action': 'showFeed', 'feed': 'label:abc'}),
@@ -426,6 +566,41 @@ void main() {
         WidgetAction.decode({'action': 'showFeed', 'feed': 'recent'}),
         isNull,
       );
+    });
+  });
+
+  group("a note's menu", () {
+    Future<void> openMenu(WidgetTester tester, String title) async {
+      await tester.runAsync(() => seedIfEmpty(db.noteDao));
+      widgets.launchAction = OpenNote((await noteTitled(tester, title)).id);
+      await pumpApp(tester);
+      await tester.tap(find.byTooltip('More'));
+      // Long enough for the menu to finish opening.
+      await settle(tester, turns: 5);
+    }
+
+    testWidgets('puts the note on the home screen', (tester) async {
+      await openMenu(tester, 'Groceries');
+
+      await tester.ensureVisible(find.text('Add to home screen'));
+      await settle(tester, turns: 2);
+      await tester.tap(find.text('Add to home screen'));
+      await settle(tester);
+
+      final groceries = await noteTitled(tester, 'Groceries');
+      expect(widgets.pinnedNotes, [groceries.id]);
+      await unmount(tester);
+    });
+
+    testWidgets('offers it only where the launcher can place it', (
+      tester,
+    ) async {
+      widgets.pinnable = false;
+      await openMenu(tester, 'Groceries');
+
+      expect(find.text('Make a copy'), findsOneWidget);
+      expect(find.text('Add to home screen'), findsNothing);
+      await unmount(tester);
     });
   });
 

@@ -62,12 +62,14 @@ Future<void> openEditor(
   bool startPinned = false,
   String? labelId,
   List<File> initialPhotos = const [],
+  bool addItem = false,
 }) async {
   final outcome = await Navigator.of(context).push<EditorOutcome>(
     MaterialPageRoute<EditorOutcome>(
       builder: (_) => EditorScreen(
         noteId: noteId,
         readOnly: readOnly,
+        addItem: addItem,
         startAsChecklist: startAsChecklist,
         startPinned: startPinned,
         labelId: labelId,

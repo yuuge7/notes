@@ -96,6 +96,7 @@ HomeWidgets homeWidgets(Ref ref) => DeviceHomeWidgets();
 HomeWidgetSync homeWidgetSync(Ref ref) {
   final sync = HomeWidgetSync(
     ref.watch(noteRepositoryProvider),
+    ref.watch(settingsRepositoryProvider),
     ref.watch(homeWidgetsProvider),
   )..start();
   ref.onDispose(() => unawaited(sync.dispose()));

@@ -58,8 +58,9 @@
         <receiver
             android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
-        <!-- The home screen widgets. The notes widget's list is filled by a
-             service Android binds itself, so it draws with the app closed. -->
+        <!-- The home screen widgets. Before Android 12 their lists are
+             filled by a service Android binds itself, so they draw with the
+             app closed. -->
         <receiver
             android:name=".widgets.NotesWidget"
             android:exported="false"
@@ -71,11 +72,24 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_notes_info" />
         </receiver>
-        <!-- What a notes widget shows, chosen as it is placed and from its
-             settings. Exported, since some launchers start it themselves
-             rather than through the widget service; it acts only on a notes
-             widget of this app. No orientation: a translucent window may not
-             set one on Android 8. -->
+        <!-- One note, its list ticked off on the home screen. A tick comes
+             back here as a broadcast, handled with the app's own code. -->
+        <receiver
+            android:name=".widgets.NoteWidget"
+            android:exported="false"
+            android:label="@string/widget_note_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_note_info" />
+        </receiver>
+        <!-- What a notes widget shows, or which note a note widget shows,
+             chosen as it is placed and from its settings. Exported, since
+             some launchers start it themselves rather than through the widget
+             service; it acts only on a widget of this app. No orientation: a
+             translucent window may not set one on Android 8. -->
         <activity
             android:name=".widgets.NotesWidgetSetup"
             android:excludeFromRecents="true"

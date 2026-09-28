@@ -5,6 +5,8 @@
     <string name="widget_notes_description">Every note, the pinned ones, or one label’s</string>
     <string name="widget_capture_label">New note</string>
     <string name="widget_capture_description">A note, a list, or a photo in one tap</string>
+    <string name="widget_note_label">Note</string>
+    <string name="widget_note_description">One note or list, ticked off right here</string>
 
     <string name="widget_notes_title">Notes</string>
     <plurals name="widget_notes_count">
@@ -18,6 +20,22 @@
     <string name="widget_empty_note">Empty note</string>
     <string name="widget_more">+%d more</string>
 
+    <!-- The note widget. Its heading is the note's title; these stand in
+         until there is a note to show. -->
+    <string name="widget_note_title">Note</string>
+    <string name="widget_note_waiting">Open Notes once, and your note shows here</string>
+    <string name="widget_note_unset">Tap to choose the note this widget shows</string>
+    <string name="widget_note_pending">Getting your note…</string>
+    <string name="widget_note_gone">That note was deleted. Tap to choose another</string>
+    <string name="widget_add_item">Add an item</string>
+    <!-- The count the checked items fold under, for TalkBack: what a tap does. -->
+    <string name="widget_note_show_done">Show %s</string>
+    <string name="widget_note_hide_done">Hide %s</string>
+    <!-- An item before Android 12, whose widgets have no checkbox for
+         TalkBack to name. -->
+    <string name="widget_item_open">%s, not checked</string>
+    <string name="widget_item_done">%s, checked</string>
+
     <!-- A notes widget's settings: what it shows. -->
     <string name="widget_setup_label">Notes widget</string>
     <string name="widget_setup_heading">SHOW ON THIS WIDGET</string>
@@ -26,6 +44,8 @@
     <string name="widget_setup_labels">LABELS</string>
     <string name="widget_setup_no_labels">Add a label in Notes to show only its notes here</string>
     <string name="widget_setup_waiting">Open Notes once, and your labels show here</string>
+    <string name="widget_setup_notes_waiting">Open Notes once, and your notes show here</string>
+    <string name="widget_setup_no_notes">Take a note in Notes, and it shows here</string>
     <plurals name="widget_setup_count">
         <item quantity="one">%d note</item>
         <item quantity="other">%d notes</item>
@@ -43,4 +63,6 @@
     <string name="widget_preview_list_item_1">Oat milk</string>
     <string name="widget_preview_list_item_2">Sourdough</string>
     <string name="widget_preview_count">8 NOTES</string>
+    <string name="widget_preview_list_progress">2 of 4 done</string>
+    <string name="widget_preview_list_done">2 checked items</string>
 </resources>

@@ -23,9 +23,21 @@ class NoteRepository {
   Stream<NotePage> watchPage(Shelf shelf, int limit) =>
       _dao.watchShelfPage(shelf, limit);
 
-  /// The first [limit] notes of each shelf a home screen widget can show.
-  Stream<WidgetShelves> watchWidgetShelves(int limit) =>
-      _dao.watchWidgetShelves(limit);
+  /// The first [limit] notes of each shelf a home screen widget can show,
+  /// the first [choices] a note widget offers, and the [pages] the note
+  /// widgets show.
+  Stream<WidgetShelves> watchWidgetShelves(
+    int limit, {
+    int choices = 0,
+    Set<String> pages = const {},
+  }) => _dao.watchWidgetShelves(limit, choices: choices, pages: pages);
+
+  /// The widget shelves once, as [watchWidgetShelves] gives them.
+  Future<WidgetShelves> loadWidgetShelves(
+    int limit, {
+    int choices = 0,
+    Set<String> pages = const {},
+  }) => _dao.loadWidgetShelves(limit, choices: choices, pages: pages);
 
   Stream<Note?> watchNote(String id) => _dao.watchNote(id);
 

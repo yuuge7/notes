@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An item's box on a note widget, as on a card: open, or ticked and muted.
+     The launcher flips it the moment it is tapped, before the app has
+     written the tick. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_widget_box_done" android:state_checked="true" />
+    <item android:drawable="@drawable/ic_widget_box_open" />
+</selector>

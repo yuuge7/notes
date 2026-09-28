@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A note widget's text, for a note that is not a list: as much as the
+     widget holds, scrolling. A tap opens the note. -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/page_body"
+    style="@style/WidgetText.NoteBody"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/widget_press"
+    android:paddingStart="4dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="4dp"
+    android:paddingBottom="12dp" />

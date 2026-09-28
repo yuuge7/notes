@@ -21,9 +21,11 @@ own. Everything stays on the device: no account, no sign-in, and no network need
 - **Images** from the Android photo picker or the camera, compressed on the device, shown as a mosaic on the
   card and full screen with pinch-to-zoom.
 - **Archive and trash**, with undo, plus Make a copy and Share. The trash keeps notes for 1, 7, or 30 days.
-- **Home screen widgets.** A notes widget shows pinned notes, then the latest, as their cards, and opens
-  any of them in a tap. A new note widget puts the compose bar on the home screen: a note, a list, photos, or
-  the camera. Both can be placed from Settings, and follow the phone's light or dark theme.
+- **Home screen widgets.** A notes widget shows every note, the pinned ones, or one label's, as their cards,
+  and opens any of them in a tap. A note widget shows one note whole: a list's items tick off right on the
+  home screen, with the app open or closed, and its + opens the list on a new item. A new note widget puts the
+  compose bar on the home screen: a note, a list, photos, or the camera. Settings places the notes and new
+  note widgets, a note's menu places a note widget, and all follow the phone's light or dark theme.
 - **Export and import.** Every note, label, and image goes into one zip, saved wherever you choose or shared
   with another app. Import merges it with the notes on the phone, keeping each note's latest edit, or replaces
   them all.
@@ -164,7 +166,9 @@ Tests run against a real in-memory database wherever data is involved. They cove
   that keep notes and leave settings at their defaults.
 - **Home screen widgets:** the snapshot they draw from (grid order, open items first, what TalkBack reads),
   a new snapshot for each change they show and none for changes they do not, taps that open a note or start
-  a note, a list, or a photo note, and the Android colours staying equal to the theme's.
+  a note, a list, or a photo note, and the Android colours staying equal to the theme's. For a note widget:
+  the whole note wherever it is in the grid, checked items where the setting puts them, and ticks written as
+  the editor writes them, taps made together in order with one snapshot.
 - **Grid paging:** 250 notes load a hundred at a time as the grid nears its end, and a note dragged to the
   end of what is loaded still lands before the next one.
 - **Finish gate:** every screen and sheet, in both themes on a 360dp-wide phone: touch targets of at least

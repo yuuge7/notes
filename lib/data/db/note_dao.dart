@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:drift/drift.dart';
 import 'package:notes/core/util/sort_key.dart';
@@ -17,11 +18,15 @@ part 'note_dao.g.dart';
 enum Shelf { active, archived, trash }
 
 /// Every set of notes a home screen widget can be showing, each as the first
-/// notes of its page: the grid, the pinned notes, and each label's page.
+/// notes of its page: the grid, the pinned notes, and each label's page. Then
+/// what the note widgets need: the notes one can be set to, and the notes
+/// they show, by id, null for one deleted since.
 typedef WidgetShelves = ({
   NotePage all,
   NotePage pinned,
   List<({Label label, NotePage page})> labels,
+  List<Note> choices,
+  Map<String, Note?> pages,
 });
 
 int _now() => DateTime.now().millisecondsSinceEpoch;
@@ -543,18 +548,38 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
 
   /// The first [limit] notes of every widget shelf, reloaded after every
   /// change.
-  Stream<WidgetShelves> watchWidgetShelves(int limit) =>
-      reloadOnChange(() => loadWidgetShelves(limit));
+  Stream<WidgetShelves> watchWidgetShelves(
+    int limit, {
+    int choices = 0,
+    Set<String> pages = const {},
+  }) => reloadOnChange(
+    () => loadWidgetShelves(limit, choices: choices, pages: pages),
+  );
 
   /// Loads the widget shelves together. A note on several of them, pinned
   /// and wearing two labels, is read once. The pinned notes are the grid's
   /// first rows: the grid puts them first, to the same limit.
-  Future<WidgetShelves> loadWidgetShelves(int limit) async {
-    final grid = await (_shelfQuery(Shelf.active)..limit(limit)).get();
+  ///
+  /// [choices] is how many of the grid's notes a note widget offers, and
+  /// [pages] the notes the note widgets show. An archived note still shows
+  /// on its widget; one in the trash does not.
+  Future<WidgetShelves> loadWidgetShelves(
+    int limit, {
+    int choices = 0,
+    Set<String> pages = const {},
+  }) async {
+    final grid = await (_shelfQuery(
+      Shelf.active,
+    )..limit(math.max(limit, choices))).get();
     final pinned = [
-      for (final row in grid)
+      for (final row in grid.take(limit))
         if (row.pinned) row,
     ];
+    final pageRows = pages.isEmpty
+        ? const <NoteRow>[]
+        : await (select(
+            notes,
+          )..where((t) => t.id.isIn(pages) & t.deleted.equals(false))).get();
     Future<({Label label, List<NoteRow> rows, int total})> shelf(
       Label label,
     ) async => (
@@ -568,6 +593,7 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
       for (final row in [
         ...grid,
         for (final shelf in labelShelves) ...shelf.rows,
+        ...pageRows,
       ])
         row.id: row,
     };
@@ -581,12 +607,14 @@ class NoteDao extends DatabaseAccessor<AppDatabase> with _$NoteDaoMixin {
 
     final active = _onShelf(notes, Shelf.active);
     return (
-      all: page(grid, await _count(active)),
+      all: page(grid.take(limit).toList(), await _count(active)),
       pinned: page(pinned, await _count(active & notes.pinned.equals(true))),
       labels: [
         for (final shelf in labelShelves)
           (label: shelf.label, page: page(shelf.rows, shelf.total)),
       ],
+      choices: [for (final row in grid.take(choices)) hydrated[row.id]!],
+      pages: {for (final id in pages) id: hydrated[id]},
     );
   }
 
